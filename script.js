@@ -1,7 +1,7 @@
 const CONFIG = {
   venue: "PLC Football Field",
   slotDuration: "2 hours",
-  appsScriptUrl: "https://script.google.com/macros/s/AKfycbzFgY7aQIhqfM1BQIXvkcVd3y28wIKTZmgOk21M8Fd1fxunrPJ_5QGqTpcOHazfhT_Hjw/exec"
+  appsScriptUrl: "PASTE_YOUR_GOOGLE_APPS_SCRIPT_WEB_APP_URL_HERE"
 };
 
 const monthNames = [
@@ -22,10 +22,11 @@ const state = {
   currentYear: new Date().getFullYear(),
   selectedDate: null,
   selectedSlot: null,
-  bookedSlots: [],
+  allBookings: [],
   currentBookingId: null,
   currentStatus: "Draft",
-  isEditingExistingBooking: false
+  isEditingExistingBooking: false,
+  filterBySelectedDate: false
 };
 
 const monthSelect = document.getElementById("monthSelect");
@@ -33,28 +34,38 @@ const yearSelect = document.getElementById("yearSelect");
 const calendarGrid = document.getElementById("calendarGrid");
 const slotsContainer = document.getElementById("slots");
 const selectedDateTime = document.getElementById("selectedDateTime");
-const summaryDate = document.getElementById("summaryDate");
-const summaryTime = document.getElementById("summaryTime");
-const summaryName = document.getElementById("summaryName");
-const summaryUnit = document.getElementById("summaryUnit");
-const summaryEvent = document.getElementById("summaryEvent");
-const summaryBookingId = document.getElementById("summaryBookingId");
-const summaryStatus = document.getElementById("summaryStatus");
+const selectedDateLabel = document.getElementById("selectedDateLabel");
+const bookingsTableBody = document.getElementById("bookingsTableBody");
 const form = document.getElementById("bookingForm");
+const submitBtn = document.getElementById("submitBtn");
 const errorText = document.getElementById("errorText");
 const statusText = document.getElementById("statusText");
 const confirmationBox = document.getElementById("confirmationBox");
 const confirmDateTime = document.getElementById("confirmDateTime");
 const confirmBookingId = document.getElementById("confirmBookingId");
 const footerActions = document.getElementById("footerActions");
-const submitBtn = document.getElementById("submitBtn");
 
-const emailInput = document.getElementById("email");
-const rankInput = document.getElementById("rank");
-const nameInput = document.getElementById("name");
-const unitInput = document.getElementById("unit");
-const eventInput = document.getElementById("eventName");
-const contactInput = document.getElementById("contact");
+const inputs = {
+  email: document.getElementById("email"),
+  contact: document.getElementById("contact"),
+  rank: document.getElementById("rank"),
+  unit: document.getElementById("unit"),
+  name: document.getElementById("name"),
+  eventName: document.getElementById("eventName")
+};
+
+const summary = {
+  date: document.getElementById("summaryDate"),
+  time: document.getElementById("summaryTime"),
+  name: document.getElementById("summaryName"),
+  rank: document.getElementById("summaryRank"),
+  unit: document.getElementById("summaryUnit"),
+  email: document.getElementById("summaryEmail"),
+  contact: document.getElementById("summaryContact"),
+  event: document.getElementById("summaryEvent"),
+  bookingId: document.getElementById("summaryBookingId"),
+  status: document.getElementById("summaryStatus")
+};
 
 function populateSelectors() {
   monthSelect.innerHTML = "";
@@ -91,6 +102,25 @@ function getIsoDate(date) {
   return `${y}-${m}-${d}`;
 }
 
+function escapeHtml(value) {
+  return String(value || "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+function setError(message) {
+  errorText.textContent = message;
+  errorText.className = "error-text show";
+}
+
+function clearError() {
+  errorText.textContent = "";
+  errorText.className = "error-text";
+}
+
 function setStatus(message, type = "info") {
   statusText.textContent = message;
   statusText.className = `status-text show ${type}`;
@@ -101,27 +131,46 @@ function clearStatus() {
   statusText.className = "status-text";
 }
 
-function updateSummaryFields() {
-  summaryName.textContent = nameInput.value || "-";
-  summaryUnit.textContent = unitInput.value || "-";
-  summaryEvent.textContent = eventInput.value || "-";
-  summaryBookingId.textContent = state.currentBookingId || "-";
-  summaryStatus.textContent = state.currentStatus;
+async function apiRequest(params) {
+  const url = new URL(CONFIG.appsScriptUrl);
+
+  Object.entries(params).forEach(([key, value]) => {
+    url.searchParams.set(key, value ?? "");
+  });
+
+  const response = await fetch(url.toString(), {
+    method: "GET",
+    redirect: "follow"
+  });
+
+  const rawText = await response.text();
+
+  let data;
+  try {
+    data = JSON.parse(rawText);
+  } catch (error) {
+    throw new Error(`Non-JSON response: ${rawText.slice(0, 200)}`);
+  }
+
+  return data;
 }
 
-function updateHeader() {
-  const dateText = state.selectedDate ? formatDate(state.selectedDate) : "No date selected";
-  const timeText = state.selectedSlot ? state.selectedSlot : "No slot selected";
+function updateSummary() {
+  summary.date.textContent = state.selectedDate ? formatDate(state.selectedDate) : "-";
+  summary.time.textContent = state.selectedSlot || "-";
+  summary.name.textContent = inputs.name.value || "-";
+  summary.rank.textContent = inputs.rank.value || "-";
+  summary.unit.textContent = inputs.unit.value || "-";
+  summary.email.textContent = inputs.email.value || "-";
+  summary.contact.textContent = inputs.contact.value || "-";
+  summary.event.textContent = inputs.eventName.value || "-";
+  summary.bookingId.textContent = state.currentBookingId || "-";
+  summary.status.textContent = state.currentStatus || "Draft";
 
   selectedDateTime.textContent =
     state.selectedDate && state.selectedSlot
-      ? `${dateText}, ${timeText}`
+      ? `${formatDate(state.selectedDate)} • ${state.selectedSlot}`
       : "Select a date and slot";
-
-  summaryDate.textContent = state.selectedDate ? formatDate(state.selectedDate) : "-";
-  summaryTime.textContent = state.selectedSlot || "-";
-
-  updateSummaryFields();
 }
 
 function renderCalendar() {
@@ -131,7 +180,9 @@ function renderCalendar() {
   const lastDay = new Date(state.currentYear, state.currentMonth + 1, 0);
   const startDayIndex = firstDay.getDay();
   const totalDays = lastDay.getDate();
+
   const today = new Date();
+  today.setHours(0, 0, 0, 0);
 
   for (let i = 0; i < startDayIndex; i++) {
     const empty = document.createElement("button");
@@ -146,28 +197,30 @@ function renderCalendar() {
     btn.textContent = day;
 
     const thisDate = new Date(state.currentYear, state.currentMonth, day);
+    thisDate.setHours(0, 0, 0, 0);
 
-    const isToday =
-      day === today.getDate() &&
-      state.currentMonth === today.getMonth() &&
-      state.currentYear === today.getFullYear();
-
+    const isToday = thisDate.getTime() === today.getTime();
+    const isPast = thisDate.getTime() < today.getTime();
     const isSelected =
       state.selectedDate &&
-      day === state.selectedDate.getDate() &&
-      state.currentMonth === state.selectedDate.getMonth() &&
-      state.currentYear === state.selectedDate.getFullYear();
+      thisDate.getTime() === new Date(state.selectedDate).setHours(0, 0, 0, 0);
 
-    if (isToday) btn.classList.add("today-ring");
+    if (isToday) btn.classList.add("today");
     if (isSelected) btn.classList.add("selected");
+    if (isPast) {
+      btn.classList.add("past");
+      btn.disabled = true;
+    }
 
     btn.addEventListener("click", async () => {
       state.selectedDate = thisDate;
       state.selectedSlot = null;
+      state.filterBySelectedDate = true;
       renderCalendar();
-      updateHeader();
+      updateSummary();
       hideConfirmation();
-      await loadUnavailableSlotsForSelectedDate();
+      renderSlots();
+      renderBookingsTable();
     });
 
     calendarGrid.appendChild(btn);
@@ -182,150 +235,229 @@ function renderSlots() {
     btn.type = "button";
     btn.className = "slot-btn";
 
-    const isBookedByOthers = state.bookedSlots.includes(time);
-    const isCurrentSelection = state.selectedSlot === time;
+    const bookingForThisSlot = state.allBookings.find((booking) => {
+      const sameDate = state.selectedDate && booking.bookingDate === getIsoDate(state.selectedDate);
+      const sameTime = booking.bookingTime === time;
+      const sameVenue = booking.venue === CONFIG.venue;
+      const active = booking.status !== "Cancelled";
+      const differentBooking = booking.bookingId !== state.currentBookingId;
+      return sameDate && sameTime && sameVenue && active && differentBooking;
+    });
 
-    if (isCurrentSelection) btn.classList.add("selected");
+    const isDisabled = !!bookingForThisSlot;
+    const isSelected = state.selectedSlot === time;
 
-    if (isBookedByOthers && !isCurrentSelection) {
+    if (isSelected) btn.classList.add("selected");
+    if (isDisabled && !isSelected) {
       btn.classList.add("disabled");
       btn.disabled = true;
     }
 
     btn.innerHTML = `
       <span class="slot-time">${time}</span>
-      <span class="slot-sub">${isBookedByOthers && !isCurrentSelection ? "Unavailable" : "1 slot"}</span>
+      <span class="slot-sub">${
+        bookingForThisSlot
+          ? `Booked by ${escapeHtml(bookingForThisSlot.name)}`
+          : "Available"
+      }</span>
     `;
 
     btn.addEventListener("click", () => {
       if (btn.disabled) return;
       state.selectedSlot = time;
-      renderSlots();
-      updateHeader();
+      updateSummary();
       hideConfirmation();
+      clearError();
     });
 
     slotsContainer.appendChild(btn);
   });
 }
 
-function hideConfirmation() {
-  confirmationBox.classList.remove("show");
-  footerActions.classList.remove("show");
-}
+function getStatusBadge(status) {
+  const value = String(status || "").toLowerCase();
 
-function getFormData() {
-  return {
-    email: emailInput.value.trim(),
-    rank: rankInput.value.trim(),
-    name: nameInput.value.trim(),
-    unit: unitInput.value.trim(),
-    eventName: eventInput.value.trim(),
-    contact: contactInput.value.trim(),
-    venue: CONFIG.venue,
-    bookingDate: state.selectedDate ? getIsoDate(state.selectedDate) : "",
-    bookingDateDisplay: state.selectedDate ? formatDate(state.selectedDate) : "",
-    bookingTime: state.selectedSlot || "",
-    duration: CONFIG.slotDuration,
-    bookingId: state.currentBookingId || "",
-    status: state.currentStatus
-  };
-}
-
-async function apiRequest(params) {
-  const url = new URL(CONFIG.appsScriptUrl);
-  Object.entries(params).forEach(([key, value]) => {
-    url.searchParams.set(key, value);
-  });
-
-  const response = await fetch(url.toString(), {
-    method: "GET"
-  });
-
-  if (!response.ok) {
-    throw new Error("Network error.");
+  if (value === "confirmed") {
+    return `<span class="status-badge status-confirmed">Confirmed</span>`;
+  }
+  if (value === "updated") {
+    return `<span class="status-badge status-updated">Updated</span>`;
+  }
+  if (value === "cancelled") {
+    return `<span class="status-badge status-cancelled">Cancelled</span>`;
   }
 
-  return response.json();
+  return `<span class="status-badge">${escapeHtml(status || "-")}</span>`;
 }
 
-async function loadUnavailableSlotsForSelectedDate() {
-  if (!state.selectedDate) {
-    state.bookedSlots = [];
-    renderSlots();
+function renderBookingsTable() {
+  let bookings = [...state.allBookings];
+
+  if (state.filterBySelectedDate && state.selectedDate) {
+    const selectedIsoDate = getIsoDate(state.selectedDate);
+    bookings = bookings.filter((booking) => booking.bookingDate === selectedIsoDate);
+    selectedDateLabel.textContent = `Showing bookings for ${formatDate(state.selectedDate)}.`;
+  } else {
+    selectedDateLabel.textContent = "Showing all bookings. Select a date to filter.";
+  }
+
+  bookings.sort((a, b) => {
+    const aKey = `${a.bookingDate} ${a.bookingTime}`;
+    const bKey = `${b.bookingDate} ${b.bookingTime}`;
+    return aKey.localeCompare(bKey);
+  });
+
+  if (!bookings.length) {
+    bookingsTableBody.innerHTML = `
+      <tr>
+        <td colspan="12" class="empty-cell">No bookings found.</td>
+      </tr>
+    `;
     return;
   }
 
-  try {
-    setStatus("Loading slot availability...", "info");
+  bookingsTableBody.innerHTML = bookings.map((booking) => `
+    <tr>
+      <td>${escapeHtml(booking.bookingId)}</td>
+      <td>${getStatusBadge(booking.status)}</td>
+      <td>${escapeHtml(booking.bookingDate)}</td>
+      <td>${escapeHtml(booking.bookingTime)}</td>
+      <td>${escapeHtml(booking.name)}</td>
+      <td>${escapeHtml(booking.rank)}</td>
+      <td>${escapeHtml(booking.unit)}</td>
+      <td>${escapeHtml(booking.email)}</td>
+      <td>${escapeHtml(booking.contact)}</td>
+      <td>${escapeHtml(booking.eventName)}</td>
+      <td>${escapeHtml(booking.venue)}</td>
+      <td>
+        <button class="table-load-btn" type="button" data-booking-id="${escapeHtml(booking.bookingId)}">
+          Load
+        </button>
+      </td>
+    </tr>
+  `).join("");
 
-    const data = await apiRequest({
-      action: "getSlots",
-      bookingDate: getIsoDate(state.selectedDate),
-      venue: CONFIG.venue,
-      excludeBookingId: state.currentBookingId || ""
-     });
+  document.querySelectorAll(".table-load-btn").forEach((button) => {
+    button.addEventListener("click", () => {
+      const bookingId = button.getAttribute("data-booking-id");
+      const booking = state.allBookings.find((item) => item.bookingId === bookingId);
+      if (booking) {
+        loadBookingIntoForm(booking);
+      }
+    });
+  });
+}
 
-    if (data.success) {
-      state.bookedSlots = Array.isArray(data.bookedSlots) ? data.bookedSlots : [];
-      renderSlots();
-      clearStatus();
-    } else {
-      state.bookedSlots = [];
-      renderSlots();
-      setStatus(data.message || "Could not load slots.", "error");
-    }
-  } catch (error) {
-    state.bookedSlots = [];
-    renderSlots();
-    setStatus("Failed to load slot availability.", "error");
+function loadBookingIntoForm(booking) {
+  inputs.email.value = booking.email || "";
+  inputs.contact.value = booking.contact || "";
+  inputs.rank.value = booking.rank || "";
+  inputs.unit.value = booking.unit || "";
+  inputs.name.value = booking.name || "";
+  inputs.eventName.value = booking.eventName || "";
+
+  state.currentBookingId = booking.bookingId || null;
+  state.currentStatus = booking.status || "Draft";
+  state.isEditingExistingBooking = booking.status !== "Cancelled";
+
+  if (booking.bookingDate) {
+    const [year, month, day] = booking.bookingDate.split("-").map(Number);
+    const selected = new Date(year, month - 1, day);
+    state.selectedDate = selected;
+    state.currentMonth = selected.getMonth();
+    state.currentYear = selected.getFullYear();
+    monthSelect.value = state.currentMonth;
+    yearSelect.value = state.currentYear;
   }
+
+  state.selectedSlot = booking.bookingTime || null;
+  state.filterBySelectedDate = true;
+
+  submitBtn.textContent = booking.status === "Cancelled" ? "Submit Booking" : "Save Changes";
+
+  updateSummary();
+  renderCalendar();
+  renderSlots();
+  renderBookingsTable();
+  hideConfirmation();
+  clearError();
+  setStatus(`Loaded booking ${booking.bookingId}.`, "info");
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+function hideConfirmation() {
+  confirmationBox.classList.add("hidden");
+  footerActions.classList.add("hidden");
+}
+
+function showConfirmation() {
+  confirmDateTime.textContent = `${formatDate(state.selectedDate)} • ${state.selectedSlot}`;
+  confirmBookingId.textContent = `Booking ID: ${state.currentBookingId || "-"}`;
+  confirmationBox.classList.remove("hidden");
+  footerActions.classList.remove("hidden");
+}
+
+function resetBookingState() {
+  state.selectedSlot = null;
+  state.currentBookingId = null;
+  state.currentStatus = "Draft";
+  state.isEditingExistingBooking = false;
+  submitBtn.textContent = "Submit Booking";
+  hideConfirmation();
+  clearError();
+  clearStatus();
+  updateSummary();
+  renderSlots();
+}
+
+function getFormPayload() {
+  return {
+    email: inputs.email.value.trim(),
+    contact: inputs.contact.value.trim(),
+    rank: inputs.rank.value.trim(),
+    unit: inputs.unit.value.trim(),
+    name: inputs.name.value.trim(),
+    eventName: inputs.eventName.value.trim(),
+    venue: CONFIG.venue,
+    bookingDate: state.selectedDate ? getIsoDate(state.selectedDate) : "",
+    bookingTime: state.selectedSlot || "",
+    duration: CONFIG.slotDuration,
+    bookingId: state.currentBookingId || ""
+  };
+}
+
+async function loadAllBookings() {
+  const data = await apiRequest({
+    action: "listBookings",
+    venue: CONFIG.venue
+  });
+
+  if (!data.success) {
+    throw new Error(data.message || "Failed to load bookings.");
+  }
+
+  state.allBookings = Array.isArray(data.bookings) ? data.bookings : [];
+  renderSlots();
+  renderBookingsTable();
 }
 
 async function createBooking() {
-  const payload = getFormData();
-
-  const data = await apiRequest({
+  return apiRequest({
     action: "createBooking",
-    email: payload.email,
-    rank: payload.rank,
-    name: payload.name,
-    unit: payload.unit,
-    eventName: payload.eventName,
-    contact: payload.contact,
-    venue: payload.venue,
-    bookingDate: payload.bookingDate,
-    bookingTime: payload.bookingTime,
-    duration: payload.duration
+    ...getFormPayload()
   });
-
-  return data;
 }
 
 async function updateBooking() {
-  const payload = getFormData();
-
-  const data = await apiRequest({
+  return apiRequest({
     action: "updateBooking",
-    bookingId: payload.bookingId,
-    email: payload.email,
-    rank: payload.rank,
-    name: payload.name,
-    unit: payload.unit,
-    eventName: payload.eventName,
-    contact: payload.contact,
-    venue: payload.venue,
-    bookingDate: payload.bookingDate,
-    bookingTime: payload.bookingTime,
-    duration: payload.duration
+    ...getFormPayload()
   });
-
-  return data;
 }
 
 async function cancelBooking() {
   if (!state.currentBookingId) {
-    setStatus("No booking found to cancel.", "error");
+    setStatus("No booking loaded to cancel.", "error");
     return;
   }
 
@@ -340,53 +472,56 @@ async function cancelBooking() {
       bookingId: state.currentBookingId
     });
 
-    if (data.success) {
-      state.currentStatus = "Cancelled";
-      updateSummaryFields();
-      hideConfirmation();
-      setStatus(`Booking ${state.currentBookingId} cancelled.`, "success");
-      await loadUnavailableSlotsForSelectedDate();
-    } else {
-      setStatus(data.message || "Unable to cancel booking.", "error");
+    if (!data.success) {
+      throw new Error(data.message || "Cancel failed.");
     }
+
+    state.currentStatus = "Cancelled";
+    updateSummary();
+    hideConfirmation();
+    setStatus(`Booking ${state.currentBookingId} cancelled successfully.`, "success");
+    await loadAllBookings();
   } catch (error) {
-    setStatus("Failed to cancel booking.", "error");
+    setStatus(error.message || "Failed to cancel booking.", "error");
   }
 }
 
-function fillConfirmationBox() {
-  const text = `${formatDate(state.selectedDate)}, ${state.selectedSlot}`;
-  confirmDateTime.textContent = text;
-  confirmBookingId.textContent = `Booking ID: ${state.currentBookingId || "-"}`;
+async function findBooking() {
+  const bookingId = document.getElementById("searchBookingId").value.trim();
+  const email = document.getElementById("searchEmail").value.trim();
 
-  confirmationBox.classList.add("show");
-  footerActions.classList.add("show");
+  if (!bookingId) {
+    setStatus("Please enter a Booking ID.", "error");
+    return;
+  }
+
+  try {
+    setStatus("Loading booking...", "info");
+
+    const data = await apiRequest({
+      action: "getBooking",
+      bookingId,
+      email
+    });
+
+    if (!data.success || !data.booking) {
+      throw new Error(data.message || "Booking not found.");
+    }
+
+    loadBookingIntoForm(data.booking);
+  } catch (error) {
+    setStatus(error.message || "Failed to load booking.", "error");
+  }
 }
 
-function resetFormState() {
-  state.selectedSlot = null;
-  state.currentBookingId = null;
-  state.currentStatus = "Draft";
-  state.isEditingExistingBooking = false;
-  submitBtn.textContent = "Submit Booking";
-  hideConfirmation();
-  errorText.style.display = "none";
-  clearStatus();
-  updateSummaryFields();
-  renderSlots();
-  updateHeader();
-}
-
-monthSelect.addEventListener("change", async (e) => {
-  state.currentMonth = Number(e.target.value);
+monthSelect.addEventListener("change", () => {
+  state.currentMonth = Number(monthSelect.value);
   renderCalendar();
-  hideConfirmation();
 });
 
-yearSelect.addEventListener("change", async (e) => {
-  state.currentYear = Number(e.target.value);
+yearSelect.addEventListener("change", () => {
+  state.currentYear = Number(yearSelect.value);
   renderCalendar();
-  hideConfirmation();
 });
 
 document.getElementById("prevMonth").addEventListener("click", () => {
@@ -398,7 +533,6 @@ document.getElementById("prevMonth").addEventListener("click", () => {
   monthSelect.value = state.currentMonth;
   yearSelect.value = state.currentYear;
   renderCalendar();
-  hideConfirmation();
 });
 
 document.getElementById("nextMonth").addEventListener("click", () => {
@@ -410,50 +544,65 @@ document.getElementById("nextMonth").addEventListener("click", () => {
   monthSelect.value = state.currentMonth;
   yearSelect.value = state.currentYear;
   renderCalendar();
-  hideConfirmation();
 });
 
-document.getElementById("todayBtn").addEventListener("click", async () => {
+document.getElementById("todayBtn").addEventListener("click", () => {
   const today = new Date();
   state.currentMonth = today.getMonth();
   state.currentYear = today.getFullYear();
-  state.selectedDate = today;
+  state.selectedDate = new Date(today.getFullYear(), today.getMonth(), today.getDate());
   state.selectedSlot = null;
+  state.filterBySelectedDate = true;
   monthSelect.value = state.currentMonth;
   yearSelect.value = state.currentYear;
   renderCalendar();
-  updateHeader();
-  hideConfirmation();
-  await loadUnavailableSlotsForSelectedDate();
+  updateSummary();
+  renderSlots();
+  renderBookingsTable();
 });
 
-[nameInput, unitInput, eventInput].forEach((input) => {
-  input.addEventListener("input", updateSummaryFields);
+Object.values(inputs).forEach((input) => {
+  input.addEventListener("input", updateSummary);
 });
 
 document.getElementById("resetBtn").addEventListener("click", () => {
   setTimeout(() => {
-    resetFormState();
+    resetBookingState();
   }, 0);
 });
 
-document.getElementById("changeBookingBtn").addEventListener("click", async () => {
+document.getElementById("changeBookingBtn").addEventListener("click", () => {
   if (!state.currentBookingId) {
-    setStatus("No booking found to change.", "error");
+    setStatus("No booking loaded to change.", "error");
     return;
   }
 
   state.isEditingExistingBooking = true;
-  state.currentStatus = "Pending Update";
+  state.currentStatus = "Updated";
   submitBtn.textContent = "Save Changes";
-  updateSummaryFields();
   hideConfirmation();
-  setStatus(`Editing booking ${state.currentBookingId}. Update the date, slot, or form details, then click Save Changes.`, "info");
-  await loadUnavailableSlotsForSelectedDate();
+  updateSummary();
+  setStatus(`Editing booking ${state.currentBookingId}. Make your changes and save.`, "info");
   window.scrollTo({ top: 0, behavior: "smooth" });
 });
 
 document.getElementById("cancelBookingBtn").addEventListener("click", cancelBooking);
+document.getElementById("findBookingBtn").addEventListener("click", findBooking);
+
+document.getElementById("refreshBookingsBtn").addEventListener("click", async () => {
+  try {
+    setStatus("Refreshing bookings...", "info");
+    await loadAllBookings();
+    clearStatus();
+  } catch (error) {
+    setStatus(error.message || "Failed to refresh bookings.", "error");
+  }
+});
+
+document.getElementById("clearDateFilterBtn").addEventListener("click", () => {
+  state.filterBySelectedDate = false;
+  renderBookingsTable();
+});
 
 document.getElementById("backBtn").addEventListener("click", () => {
   window.history.back();
@@ -461,56 +610,68 @@ document.getElementById("backBtn").addEventListener("click", () => {
 
 form.addEventListener("submit", async (e) => {
   e.preventDefault();
+  clearError();
 
   if (!state.selectedDate || !state.selectedSlot) {
-    errorText.style.display = "block";
-    hideConfirmation();
+    setError("Please select a date and time slot before submitting.");
     return;
   }
 
-  errorText.style.display = "none";
-
   try {
     submitBtn.disabled = true;
-    setStatus(state.isEditingExistingBooking ? "Updating booking..." : "Creating booking...", "info");
+    setStatus(state.currentBookingId ? "Saving booking..." : "Creating booking...", "info");
 
-    let data;
-    if (state.isEditingExistingBooking && state.currentBookingId) {
-      data = await updateBooking();
-    } else {
-      data = await createBooking();
+    await loadAllBookings();
+
+    const selectedDateIso = getIsoDate(state.selectedDate);
+
+    const conflict = state.allBookings.find((booking) => {
+      const sameDate = booking.bookingDate === selectedDateIso;
+      const sameTime = booking.bookingTime === state.selectedSlot;
+      const sameVenue = booking.venue === CONFIG.venue;
+      const active = booking.status !== "Cancelled";
+      const differentBooking = booking.bookingId !== state.currentBookingId;
+      return sameDate && sameTime && sameVenue && active && differentBooking;
+    });
+
+    if (conflict) {
+      throw new Error(`This slot is already booked by ${conflict.name}. Please choose another slot.`);
     }
+
+    const data = state.currentBookingId ? await updateBooking() : await createBooking();
 
     if (!data.success) {
-      setStatus(data.message || "Something went wrong.", "error");
-      submitBtn.disabled = false;
-      return;
+      throw new Error(data.message || "Something went wrong.");
     }
 
+    const wasEditing = !!state.currentBookingId;
+
     state.currentBookingId = data.bookingId || state.currentBookingId;
-    state.currentStatus = state.isEditingExistingBooking ? "Updated" : "Confirmed";
+    state.currentStatus = wasEditing ? "Updated" : "Confirmed";
     state.isEditingExistingBooking = false;
     submitBtn.textContent = "Submit Booking";
 
-    updateSummaryFields();
-    fillConfirmationBox();
-    setStatus(
-      state.currentStatus === "Updated"
-        ? `Booking ${state.currentBookingId} updated successfully.`
-        : `Booking ${state.currentBookingId} created successfully.`,
-      "success"
-    );
+    updateSummary();
+    showConfirmation();
+    setStatus(`Booking ${state.currentBookingId} saved successfully.`, "success");
 
-    await loadUnavailableSlotsForSelectedDate();
-    confirmationBox.scrollIntoView({ behavior: "smooth", block: "start" });
+    await loadAllBookings();
   } catch (error) {
-    setStatus("Failed to save booking. Check your Apps Script URL and deployment settings.", "error");
+    setStatus(error.message || "Failed to save booking.", "error");
   } finally {
     submitBtn.disabled = false;
   }
 });
 
-populateSelectors();
-renderCalendar();
-renderSlots();
-updateHeader();
+(async function init() {
+  populateSelectors();
+  renderCalendar();
+  renderSlots();
+  updateSummary();
+
+  try {
+    await loadAllBookings();
+  } catch (error) {
+    setStatus(error.message || "Failed to load initial bookings.", "error");
+  }
+})();
