@@ -262,8 +262,9 @@ async function loadUnavailableSlotsForSelectedDate() {
     const data = await apiRequest({
       action: "getSlots",
       bookingDate: getIsoDate(state.selectedDate),
+      venue: CONFIG.venue,
       excludeBookingId: state.currentBookingId || ""
-    });
+     });
 
     if (data.success) {
       state.bookedSlots = Array.isArray(data.bookedSlots) ? data.bookedSlots : [];
