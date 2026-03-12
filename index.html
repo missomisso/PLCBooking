@@ -3,24 +3,31 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Pasir Laba Camp Booking</title>
+  <title>PLC Football Field Booking</title>
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
   <div class="topbar"></div>
 
-  <div class="page">
-    <div class="card">
+  <main class="page">
+    <section class="card">
       <div class="header-row">
+        <button class="link-btn" id="backBtn">← Back</button>
+        <div class="header-right">PLC Booking System</div>
       </div>
 
-      <h1>Pasir Laba Camp Booking</h1>
-      <div class="selected-datetime" id="selectedDateTime">Select a date and slot</div>
+      <div class="hero">
+        <div>
+          <h1>PLC Football Field Booking</h1>
+          <p class="hero-sub">Book, edit, cancel, and view all bookings in one place.</p>
+        </div>
+        <div class="selected-pill" id="selectedDateTime">Select a date and slot</div>
+      </div>
 
-      <hr class="section-divider" />
+      <div class="main-layout">
+        <section class="panel booking-panel">
+          <div class="section-heading">Step 1 · Select date</div>
 
-      <div class="booking-layout">
-        <div class="calendar-panel">
           <div class="month-row">
             <select id="monthSelect"></select>
             <select id="yearSelect"></select>
@@ -39,57 +46,52 @@
           </div>
 
           <div class="calendar-grid" id="calendarGrid"></div>
-
           <button class="today-btn" id="todayBtn" type="button">Today</button>
-        </div>
 
-        <div class="slot-panel">
-          <div class="slot-note">⌛ Each slot is 2 h long</div>
+          <div class="divider"></div>
+
+          <div class="section-heading">Step 2 · Choose time slot</div>
+          <p class="muted">Each slot is 2 hours long</p>
           <div class="slots" id="slots"></div>
-        </div>
-      </div>
 
-      <div class="details-section">
-        <div class="form-panel">
-          <h3>Enter Details</h3>
+          <div class="divider"></div>
+
+          <div class="section-heading">Step 3 · Enter booking details</div>
 
           <form id="bookingForm" class="form-grid">
-            <div class="form-group">
-              <label for="email">Email</label>
-              <input id="email" type="email" required />
+            <div class="two-col">
+              <div class="form-group">
+                <label for="email">Email</label>
+                <input id="email" type="email" placeholder="name@example.com" required />
+              </div>
+              <div class="form-group">
+                <label for="contact">Contact Number</label>
+                <input id="contact" type="tel" placeholder="91234567" required />
+              </div>
             </div>
 
-            <div class="form-group">
-              <label for="rank">Rank</label>
-              <input id="rank" type="text" required />
+            <div class="two-col">
+              <div class="form-group">
+                <label for="rank">Rank</label>
+                <input id="rank" type="text" placeholder="CPT / SSG / ME2" required />
+              </div>
+              <div class="form-group">
+                <label for="unit">Unit</label>
+                <input id="unit" type="text" placeholder="Unit / Branch / Formation" required />
+              </div>
             </div>
 
             <div class="form-group">
               <label for="name">Name</label>
-              <input id="name" type="text" required />
-            </div>
-
-            <div class="form-group">
-              <label for="unit">Unit</label>
-              <input id="unit" type="text" required />
+              <input id="name" type="text" placeholder="Full name" required />
             </div>
 
             <div class="form-group">
               <label for="eventName">Event Name</label>
-              <input id="eventName" type="text" required />
-              <small>e.g. Unit Drone Training, Soldier Fundamental Trainings</small>
+              <input id="eventName" type="text" placeholder="Unit Sports Day / Training" required />
             </div>
 
-            <div class="form-group">
-              <label for="contact">Contact Number</label>
-              <input id="contact" type="tel" required />
-              <small>Handphone Number for Contacting Purposes</small>
-            </div>
-
-            <div class="error-text" id="errorText">
-              Please select a date and time slot before submitting.
-            </div>
-
+            <div class="error-text" id="errorText"></div>
             <div class="status-text" id="statusText"></div>
 
             <div class="actions">
@@ -97,42 +99,101 @@
               <button class="btn btn-secondary" type="reset" id="resetBtn">Reset</button>
             </div>
           </form>
-        </div>
+        </section>
 
-        <div class="summary-panel">
-          <h3>Booking Summary</h3>
+        <aside class="panel side-panel">
+          <div class="section-heading">Booking Summary</div>
+
           <div class="summary-list">
-            <div class="summary-item"><span>Venue</span><span>PLC Football Field</span></div>
-            <div class="summary-item"><span>Date</span><span id="summaryDate">-</span></div>
-            <div class="summary-item"><span>Time</span><span id="summaryTime">-</span></div>
-            <div class="summary-item"><span>Duration</span><span>2 hours</span></div>
-            <div class="summary-item"><span>Name</span><span id="summaryName">-</span></div>
-            <div class="summary-item"><span>Unit</span><span id="summaryUnit">-</span></div>
-            <div class="summary-item"><span>Event</span><span id="summaryEvent">-</span></div>
-            <div class="summary-item"><span>Booking ID</span><span id="summaryBookingId">-</span></div>
-            <div class="summary-item"><span>Status</span><span id="summaryStatus">Draft</span></div>
+            <div class="summary-item"><span>Venue</span><strong>PLC Football Field</strong></div>
+            <div class="summary-item"><span>Date</span><strong id="summaryDate">-</strong></div>
+            <div class="summary-item"><span>Time</span><strong id="summaryTime">-</strong></div>
+            <div class="summary-item"><span>Duration</span><strong>2 hours</strong></div>
+            <div class="summary-item"><span>Name</span><strong id="summaryName">-</strong></div>
+            <div class="summary-item"><span>Rank</span><strong id="summaryRank">-</strong></div>
+            <div class="summary-item"><span>Unit</span><strong id="summaryUnit">-</strong></div>
+            <div class="summary-item"><span>Email</span><strong id="summaryEmail">-</strong></div>
+            <div class="summary-item"><span>Contact</span><strong id="summaryContact">-</strong></div>
+            <div class="summary-item"><span>Event</span><strong id="summaryEvent">-</strong></div>
+            <div class="summary-item"><span>Booking ID</span><strong id="summaryBookingId">-</strong></div>
+            <div class="summary-item"><span>Status</span><strong id="summaryStatus">Draft</strong></div>
+          </div>
+
+          <div class="confirmation-box hidden" id="confirmationBox">
+            <div class="confirmation-badge">Booking saved</div>
+            <h3>Booking confirmed</h3>
+            <p id="confirmDateTime">-</p>
+            <p id="confirmBookingId">Booking ID: -</p>
+          </div>
+
+          <div class="footer-actions hidden" id="footerActions">
+            <button class="btn btn-outline" type="button" id="changeBookingBtn">Change booking</button>
+            <button class="btn btn-danger" type="button" id="cancelBookingBtn">Cancel booking</button>
+          </div>
+
+          <div class="divider"></div>
+
+          <div class="section-heading">Find Existing Booking</div>
+
+          <div class="form-group">
+            <label for="searchBookingId">Booking ID</label>
+            <input id="searchBookingId" type="text" placeholder="BK-202603..." />
+          </div>
+
+          <div class="form-group">
+            <label for="searchEmail">Email</label>
+            <input id="searchEmail" type="email" placeholder="Enter email for verification" />
+          </div>
+
+          <div class="actions">
+            <button class="btn btn-secondary" type="button" id="findBookingBtn">Load Booking</button>
+          </div>
+        </aside>
+      </div>
+
+      <div class="divider divider-large"></div>
+
+      <section class="all-bookings-section">
+        <div class="all-bookings-header">
+          <div>
+            <div class="section-heading">All Bookings</div>
+            <p class="muted" id="selectedDateLabel">Showing all bookings. Select a date to filter.</p>
+          </div>
+
+          <div class="booking-filters">
+            <button class="btn btn-secondary small-btn" type="button" id="refreshBookingsBtn">Refresh</button>
+            <button class="btn btn-secondary small-btn" type="button" id="clearDateFilterBtn">Show All Dates</button>
           </div>
         </div>
-      </div>
 
-      <div class="confirmation" id="confirmationBox">
-        <div class="confirmation-left">
-          <div class="confirmation-badge">● We’ve received your booking</div>
-          <h2>PLC Football Field Booking</h2>
-          <p id="confirmDateTime">-</p>
-          <p>⌛ 2 hours</p>
-          <p id="confirmBookingId">Booking ID: -</p>
-          <p>Thank you for your booking.</p>
+        <div class="bookings-table-wrapper">
+          <table class="bookings-table">
+            <thead>
+              <tr>
+                <th>Booking ID</th>
+                <th>Status</th>
+                <th>Date</th>
+                <th>Time</th>
+                <th>Name</th>
+                <th>Rank</th>
+                <th>Unit</th>
+                <th>Email</th>
+                <th>Contact</th>
+                <th>Event</th>
+                <th>Venue</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody id="bookingsTableBody">
+              <tr>
+                <td colspan="12" class="empty-cell">Loading bookings...</td>
+              </tr>
+            </tbody>
+          </table>
         </div>
-        <div class="confirmation-art"></div>
-      </div>
-
-      <div class="footer-actions" id="footerActions">
-        <button class="btn btn-outline" type="button" id="changeBookingBtn">🗓 Change booking</button>
-        <button class="btn btn-danger" type="button" id="cancelBookingBtn">⌧ Cancel booking</button>
-      </div>
-    </div>
-  </div>
+      </section>
+    </section>
+  </main>
 
   <script src="script.js"></script>
 </body>
