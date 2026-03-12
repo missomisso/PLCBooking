@@ -138,18 +138,25 @@ async function apiRequest(params) {
     url.searchParams.set(key, value ?? "");
   });
 
-  const response = await fetch(url.toString(), {
-    method: "GET",
-    redirect: "follow"
-  });
+  let response;
+  try {
+    response = await fetch(url.toString(), {
+      method: "GET",
+      mode: "cors",
+      redirect: "follow",
+      cache: "no-store"
+    });
+  } catch (networkError) {
+    throw new Error("Failed to fetch. Check Apps Script URL, deployment access, or browser blocking.");
+  }
 
   const rawText = await response.text();
 
   let data;
   try {
     data = JSON.parse(rawText);
-  } catch (error) {
-    throw new Error(`Non-JSON response: ${rawText.slice(0, 200)}`);
+  } catch (parseError) {
+    throw new Error(`Apps Script did not return valid JSON: ${rawText.slice(0, 200)}`);
   }
 
   return data;
@@ -427,18 +434,25 @@ function getFormPayload() {
 }
 
 async function loadAllBookings() {
-  const data = await apiRequest({
-    action: "listBookings",
-    venue: CONFIG.venue
-  });
+  try {
+    const data = await apiRequest({
+      action: "listBookings",
+      venue: CONFIG.venue
+    });
 
-  if (!data.success) {
-    throw new Error(data.message || "Failed to load bookings.");
+    console.log("listBookings response:", data);
+
+    if (!data.success) {
+      throw new Error(data.message || "Failed to load bookings.");
+    }
+
+    state.allBookings = Array.isArray(data.bookings) ? data.bookings : [];
+    renderSlots();
+    renderBookingsTable();
+  } catch (error) {
+    console.error("loadAllBookings error:", error);
+    setStatus(error.message || "Failed to load bookings.", "error");
   }
-
-  state.allBookings = Array.isArray(data.bookings) ? data.bookings : [];
-  renderSlots();
-  renderBookingsTable();
 }
 
 async function createBooking() {
