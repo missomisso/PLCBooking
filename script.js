@@ -301,61 +301,59 @@ function getStatusBadge(status) {
 }
 
 function renderBookingsTable() {
-  let bookings = [...state.allBookings];
+  try {
+    let bookings = [...state.allBookings];
+    const bookingsDateFilter = document.getElementById("bookingsDateFilter");
+    const selectedFilterDate = bookingsDateFilter ? bookingsDateFilter.value : "";
 
-  if (state.filterBySelectedDate && state.selectedDate) {
-    const selectedIsoDate = getIsoDate(state.selectedDate);
-    bookings = bookings.filter((booking) => booking.bookingDate === selectedIsoDate);
-    selectedDateLabel.textContent = `Showing bookings for ${formatDate(state.selectedDate)}.`;
-  } else {
-    selectedDateLabel.textContent = "Showing all bookings. Select a date to filter.";
-  }
+    if (selectedFilterDate) {
+      bookings = bookings.filter((booking) => booking.bookingDate === selectedFilterDate);
+      selectedDateLabel.textContent = `Showing bookings for ${selectedFilterDate}.`;
+    } else {
+      selectedDateLabel.textContent = "Showing all bookings. Select a date to filter.";
+    }
 
-  bookings.sort((a, b) => {
-    const aKey = `${a.bookingDate} ${a.bookingTime}`;
-    const bKey = `${b.bookingDate} ${b.bookingTime}`;
-    return aKey.localeCompare(bKey);
-  });
+    if (!bookings.length) {
+      bookingsTableBody.innerHTML = `
+        <tr>
+          <td colspan="12" class="empty-cell">No bookings found.</td>
+        </tr>
+      `;
+      return;
+    }
 
-  if (!bookings.length) {
-    bookingsTableBody.innerHTML = `
+    bookingsTableBody.innerHTML = bookings.map((booking) => `
       <tr>
-        <td colspan="12" class="empty-cell">No bookings found.</td>
+        <td>${escapeHtml(booking.bookingId || "-")}</td>
+        <td>${escapeHtml(booking.status || "-")}</td>
+        <td>${escapeHtml(booking.bookingDate || "-")}</td>
+        <td>${escapeHtml(booking.bookingTime || "-")}</td>
+        <td>${escapeHtml(booking.name || "-")}</td>
+        <td>${escapeHtml(booking.rank || "-")}</td>
+        <td>${escapeHtml(booking.unit || "-")}</td>
+        <td>${escapeHtml(booking.email || "-")}</td>
+        <td>${escapeHtml(booking.contact || "-")}</td>
+        <td>${escapeHtml(booking.eventName || "-")}</td>
+        <td>${escapeHtml(booking.venue || "-")}</td>
+        <td>
+          <button class="table-load-btn" type="button" data-booking-id="${escapeHtml(booking.bookingId || "")}">
+            Load
+          </button>
+        </td>
       </tr>
-    `;
-    return;
-  }
+    `).join("");
 
-  bookingsTableBody.innerHTML = bookings.map((booking) => `
-    <tr>
-      <td>${escapeHtml(booking.bookingId)}</td>
-      <td>${getStatusBadge(booking.status)}</td>
-      <td>${escapeHtml(booking.bookingDate)}</td>
-      <td>${escapeHtml(booking.bookingTime)}</td>
-      <td>${escapeHtml(booking.name)}</td>
-      <td>${escapeHtml(booking.rank)}</td>
-      <td>${escapeHtml(booking.unit)}</td>
-      <td>${escapeHtml(booking.email)}</td>
-      <td>${escapeHtml(booking.contact)}</td>
-      <td>${escapeHtml(booking.eventName)}</td>
-      <td>${escapeHtml(booking.venue)}</td>
-      <td>
-        <button class="table-load-btn" type="button" data-booking-id="${escapeHtml(booking.bookingId)}">
-          Load
-        </button>
-      </td>
-    </tr>
-  `).join("");
-
-  document.querySelectorAll(".table-load-btn").forEach((button) => {
-    button.addEventListener("click", () => {
-      const bookingId = button.getAttribute("data-booking-id");
-      const booking = state.allBookings.find((item) => item.bookingId === bookingId);
-      if (booking) {
-        loadBookingIntoForm(booking);
-      }
+    document.querySelectorAll(".table-load-btn").forEach((button) => {
+      button.addEventListener("click", () => {
+        const bookingId = button.getAttribute("data-booking-id");
+        const booking = state.allBookings.find((item) => item.bookingId === bookingId);
+        if (booking) loadBookingIntoForm(booking);
+      });
     });
-  });
+  } catch (error) {
+    console.error("renderBookingsTable failed:", error);
+    setStatus("Failed while rendering bookings table.", "error");
+  }
 }
 
 function loadBookingIntoForm(booking) {
