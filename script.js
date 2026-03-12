@@ -138,6 +138,8 @@ async function apiRequest(params) {
     url.searchParams.set(key, value ?? "");
   });
 
+  console.log("Fetching URL:", url.toString());
+
   let response;
   try {
     response = await fetch(url.toString(), {
@@ -147,10 +149,11 @@ async function apiRequest(params) {
       cache: "no-store"
     });
   } catch (networkError) {
-    throw new Error("Failed to fetch. Check Apps Script URL, deployment access, or browser blocking.");
+    throw new Error("Failed to fetch. Check browser cache or deployed frontend.");
   }
 
   const rawText = await response.text();
+  console.log("Raw response:", rawText);
 
   let data;
   try {
@@ -435,22 +438,29 @@ function getFormPayload() {
 
 async function loadAllBookings() {
   try {
+    setStatus("Loading bookings...", "info");
+
     const data = await apiRequest({
       action: "listBookings",
       venue: CONFIG.venue
     });
 
-    console.log("listBookings response:", data);
+    console.log("loadAllBookings response:", data);
 
     if (!data.success) {
       throw new Error(data.message || "Failed to load bookings.");
     }
 
     state.allBookings = Array.isArray(data.bookings) ? data.bookings : [];
+
+    console.log("state.allBookings:", state.allBookings);
+
     renderSlots();
     renderBookingsTable();
+
+    clearStatus();
   } catch (error) {
-    console.error("loadAllBookings error:", error);
+    console.error("loadAllBookings failed:", error);
     setStatus(error.message || "Failed to load bookings.", "error");
   }
 }
