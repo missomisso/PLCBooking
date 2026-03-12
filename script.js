@@ -1,7 +1,7 @@
 const CONFIG = {
   venue: "PLC Football Field",
   slotDuration: "2 hours",
-  appsScriptUrl: "https://script.google.com/macros/s/AKfycbz2tN6n3C7TJbuiXkq2b3vvgG7nkH-xHkbS0nuPk3upI5D-CbJ2YP1Zp4NQQCEq5B1P6g/exec"
+  appsScriptUrl: "https://script.google.com/macros/s/AKfycbw7nJGXe_fUnjx3cB-RJZSsJ37e5z2eWgyqASCs6gsluL4uT5cefR9QDuHP7nwmkMRoJw/exec"
 };
 
 const monthNames = [
