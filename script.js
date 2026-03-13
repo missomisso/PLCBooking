@@ -1,7 +1,7 @@
 const CONFIG = {
   venue: "PLC Football Field",
   slotDuration: "2 hours",
-  appsScriptUrl: "https://script.google.com/macros/s/AKfycby9goymB9SL3zgFQe70CrvAtnP8n0fE9obSGIdIdG2KT_HcjdXt9x8KSTIXpBqHeGPX/exec"
+  appsScriptUrl: "https://script.google.com/macros/s/AKfycbxCWYpy7J1wIKPK5hOIzg6TtDzqn_1VI_DjuWf6ZTEx5kA6T1kEWHDwlSQf8IEZk5XY-Q/exec"
 };
 
 const monthNames = [
@@ -50,22 +50,20 @@ const confirmBookingId = document.getElementById("confirmBookingId");
 const footerActions = document.getElementById("footerActions");
 
 const inputs = {
-  email: document.getElementById("email"),
-  contact: document.getElementById("contact"),
-  rank: document.getElementById("rank"),
+  rankName: document.getElementById("rankName"),
   unit: document.getElementById("unit"),
-  name: document.getElementById("name"),
+  contact: document.getElementById("contact"),
+  email: document.getElementById("email"),
   eventName: document.getElementById("eventName")
 };
 
 const summary = {
   date: document.getElementById("summaryDate"),
   time: document.getElementById("summaryTime"),
-  name: document.getElementById("summaryName"),
-  rank: document.getElementById("summaryRank"),
+  rankName: document.getElementById("summaryRankName"),
   unit: document.getElementById("summaryUnit"),
-  email: document.getElementById("summaryEmail"),
   contact: document.getElementById("summaryContact"),
+  email: document.getElementById("summaryEmail"),
   event: document.getElementById("summaryEvent"),
   bookingId: document.getElementById("summaryBookingId"),
   status: document.getElementById("summaryStatus")
@@ -82,7 +80,6 @@ function escapeHtml(value) {
 
 function setError(message) {
   errorText.textContent = message;
-  errorText.classList.remove("hidden");
   errorText.className = "rounded-2xl bg-red-50 px-4 py-3 text-sm font-medium text-red-700";
 }
 
@@ -93,7 +90,6 @@ function clearError() {
 
 function setStatus(message, type = "info") {
   statusText.textContent = message;
-  statusText.classList.remove("hidden");
 
   if (type === "success") {
     statusText.className = "rounded-2xl bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-700";
@@ -179,6 +175,28 @@ function getStatusBadge(status) {
   return `<span class="inline-flex rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-700">${escapeHtml(status || "-")}</span>`;
 }
 
+function buildContactLink(booking) {
+  const email = (booking.email || "").trim();
+
+  if (!email) {
+    return `<span class="text-xs font-semibold text-slate-400">No email</span>`;
+  }
+
+  const subject = encodeURIComponent(`PLC Booking Enquiry - ${booking.bookingId || ""}`);
+  const body = encodeURIComponent(
+    `Hi ${booking.rankName || ""},\n\nI’m contacting you regarding your booking for ${CONFIG.venue} on ${formatIsoDateToDisplay(booking.bookingDate || "")} at ${normalizeTimeString(booking.bookingTime || "")}.\n\nRegards,`
+  );
+
+  return `
+    <a
+      class="inline-flex rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs font-bold text-slate-800 transition hover:bg-slate-50"
+      href="mailto:${email}?subject=${subject}&body=${body}"
+    >
+      Contact
+    </a>
+  `;
+}
+
 async function apiRequest(params) {
   const url = new URL(CONFIG.appsScriptUrl);
 
@@ -234,11 +252,10 @@ function populateSelectors() {
 function updateSummary() {
   summary.date.textContent = state.selectedDate ? formatDisplayDate(state.selectedDate) : "-";
   summary.time.textContent = state.selectedSlot || "-";
-  summary.name.textContent = inputs.name.value || "-";
-  summary.rank.textContent = inputs.rank.value || "-";
+  summary.rankName.textContent = inputs.rankName.value || "-";
   summary.unit.textContent = inputs.unit.value || "-";
-  summary.email.textContent = inputs.email.value || "-";
   summary.contact.textContent = inputs.contact.value || "-";
+  summary.email.textContent = inputs.email.value || "-";
   summary.event.textContent = inputs.eventName.value || "-";
   summary.bookingId.textContent = state.currentBookingId || "-";
   summary.status.textContent = state.currentStatus || "Draft";
@@ -358,7 +375,7 @@ function renderSlots() {
         <div>
           <div class="text-base font-extrabold">${time}</div>
           <div class="mt-1 text-xs sm:text-sm ${isSelected ? "text-slate-200" : isDisabled ? "text-slate-400" : "text-slate-500"}">
-            ${bookingForThisSlot ? `Booked by ${escapeHtml(bookingForThisSlot.name)}` : "Available"}
+            ${bookingForThisSlot ? `Booked by ${escapeHtml(bookingForThisSlot.rankName)}` : "Available"}
           </div>
         </div>
         <div class="shrink-0">
@@ -424,7 +441,7 @@ function renderBookingsTable() {
     if (!bookings.length) {
       bookingsTableBody.innerHTML = `
         <tr>
-          <td colspan="12" class="px-4 py-8 text-center text-sm text-slate-500">
+          <td colspan="9" class="px-4 py-8 text-center text-sm text-slate-500">
             No bookings found.
           </td>
         </tr>
@@ -434,38 +451,17 @@ function renderBookingsTable() {
 
     bookingsTableBody.innerHTML = bookings.map((booking) => `
       <tr class="border-b border-slate-100">
-        <td class="px-4 py-3">${escapeHtml(booking.bookingId || "-")}</td>
         <td class="px-4 py-3">${getStatusBadge(booking.status)}</td>
         <td class="px-4 py-3">${escapeHtml(formatIsoDateToDisplay(booking.bookingDate || ""))}</td>
         <td class="px-4 py-3">${escapeHtml(normalizeTimeString(booking.bookingTime || ""))}</td>
-        <td class="px-4 py-3">${escapeHtml(booking.name || "-")}</td>
-        <td class="px-4 py-3">${escapeHtml(booking.rank || "-")}</td>
+        <td class="px-4 py-3">${escapeHtml(booking.rankName || "-")}</td>
         <td class="px-4 py-3">${escapeHtml(booking.unit || "-")}</td>
-        <td class="px-4 py-3">${escapeHtml(booking.email || "-")}</td>
         <td class="px-4 py-3">${escapeHtml(booking.contact || "-")}</td>
         <td class="px-4 py-3">${escapeHtml(booking.eventName || "-")}</td>
         <td class="px-4 py-3">${escapeHtml(booking.venue || "-")}</td>
-        <td class="px-4 py-3">
-          <button
-            class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs font-bold text-slate-800 transition hover:bg-slate-50"
-            type="button"
-            data-booking-id="${escapeHtml(booking.bookingId || "")}"
-          >
-            Load
-          </button>
-        </td>
+        <td class="px-4 py-3">${buildContactLink(booking)}</td>
       </tr>
     `).join("");
-
-    document.querySelectorAll("[data-booking-id]").forEach((button) => {
-      button.addEventListener("click", () => {
-        const bookingId = button.getAttribute("data-booking-id");
-        const booking = state.allBookings.find((item) => item.bookingId === bookingId);
-        if (booking) {
-          loadBookingIntoForm(booking);
-        }
-      });
-    });
   } catch (error) {
     console.error("renderBookingsTable failed:", error);
     setStatus(`Failed while rendering bookings table: ${error.message}`, "error");
@@ -473,11 +469,10 @@ function renderBookingsTable() {
 }
 
 function loadBookingIntoForm(booking) {
-  inputs.email.value = booking.email || "";
-  inputs.contact.value = booking.contact || "";
-  inputs.rank.value = booking.rank || "";
+  inputs.rankName.value = booking.rankName || "";
   inputs.unit.value = booking.unit || "";
-  inputs.name.value = booking.name || "";
+  inputs.contact.value = booking.contact || "";
+  inputs.email.value = booking.email || "";
   inputs.eventName.value = booking.eventName || "";
 
   state.currentBookingId = booking.bookingId || null;
@@ -540,11 +535,10 @@ function resetBookingState() {
 
 function getFormPayload() {
   return {
-    email: inputs.email.value.trim(),
-    contact: inputs.contact.value.trim(),
-    rank: inputs.rank.value.trim(),
+    rankName: inputs.rankName.value.trim(),
     unit: inputs.unit.value.trim(),
-    name: inputs.name.value.trim(),
+    contact: inputs.contact.value.trim(),
+    email: inputs.email.value.trim(),
     eventName: inputs.eventName.value.trim(),
     venue: CONFIG.venue,
     bookingDate: state.selectedDate ? getIsoDate(state.selectedDate) : "",
@@ -788,7 +782,7 @@ form.addEventListener("submit", async (e) => {
 
     if (conflict) {
       throw new Error(
-        `This slot is already booked by ${conflict.name}. It can only be booked again if that booking is cancelled.`
+        `This slot is already booked by ${conflict.rankName}. It can only be booked again if that booking is cancelled.`
       );
     }
 

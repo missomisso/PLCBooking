@@ -1,17 +1,19 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>PLC Football Field Booking</title>
   <script src="https://cdn.tailwindcss.com"></script>
 </head>
+
 <body class="bg-slate-50 text-slate-900">
   <div class="min-h-screen">
     <header class="sticky top-0 z-50 border-b border-slate-200 bg-white/95 backdrop-blur">
       <div class="mx-auto flex w-full max-w-6xl items-center justify-between px-4 py-3 sm:px-5 lg:px-6">
         <button id="backBtn" class="text-sm font-medium text-slate-700 transition hover:text-blue-600">
-          ← Back
+          Built By Laurent Misso
         </button>
         <div class="text-sm text-slate-500">PLC Booking System</div>
       </div>
@@ -24,23 +26,22 @@
             Venue Booking
           </p>
           <h1 class="text-2xl font-extrabold tracking-tight sm:text-3xl xl:text-[2rem]">
-            PLC Football Field Booking
+            PLC Football Field
           </h1>
           <p class="mt-2 text-sm text-slate-600 sm:text-[15px]">
             Book, manage, and review bookings in one place.
           </p>
         </div>
 
-        <div
-          id="selectedDateTime"
-          class="inline-flex w-fit max-w-full items-center rounded-full bg-blue-50 px-4 py-2 text-sm font-semibold text-blue-700"
-        >
+        <div id="selectedDateTime"
+          class="inline-flex w-fit max-w-full items-center rounded-full bg-blue-50 px-4 py-2 text-sm font-semibold text-blue-700">
           Select a date and slot
         </div>
       </section>
 
       <div class="grid grid-cols-1 gap-5 xl:grid-cols-[minmax(0,1.45fr)_minmax(320px,0.9fr)]">
         <section class="space-y-5">
+          <!-- Step 1 -->
           <div class="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5 lg:p-6">
             <p class="mb-4 text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500">
               Step 1 · Select Date
@@ -50,18 +51,22 @@
               <select id="monthSelect" class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm"></select>
               <select id="yearSelect" class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm"></select>
 
-              <button id="prevMonth" type="button" class="rounded-xl border border-slate-300 px-3 py-2 text-sm hover:bg-slate-50">
+              <button id="prevMonth" type="button"
+                class="rounded-xl border border-slate-300 px-3 py-2 text-sm hover:bg-slate-50">
                 ‹
               </button>
-              <button id="nextMonth" type="button" class="rounded-xl border border-slate-300 px-3 py-2 text-sm hover:bg-slate-50">
+              <button id="nextMonth" type="button"
+                class="rounded-xl border border-slate-300 px-3 py-2 text-sm hover:bg-slate-50">
                 ›
               </button>
-              <button id="todayBtn" type="button" class="rounded-xl border border-slate-300 px-3 py-2 text-sm font-medium hover:bg-slate-50">
+              <button id="todayBtn" type="button"
+                class="rounded-xl border border-slate-300 px-3 py-2 text-sm font-medium hover:bg-slate-50">
                 Today
               </button>
             </div>
 
-            <div class="mb-2 grid grid-cols-7 gap-2 text-center text-[10px] font-bold uppercase tracking-wide text-slate-400 sm:text-[11px]">
+            <div
+              class="mb-2 grid grid-cols-7 gap-2 text-center text-[10px] font-bold uppercase tracking-wide text-slate-400 sm:text-[11px]">
               <div>Su</div>
               <div>Mo</div>
               <div>Tu</div>
@@ -74,6 +79,7 @@
             <div id="calendarGrid" class="grid grid-cols-7 gap-2"></div>
           </div>
 
+          <!-- Step 2 -->
           <div class="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5 lg:p-6">
             <div class="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div>
@@ -91,6 +97,7 @@
             <div id="slots" class="grid grid-cols-1 gap-3 md:grid-cols-2"></div>
           </div>
 
+          <!-- Step 3 -->
           <div class="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5 lg:p-6">
             <p class="mb-4 text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500">
               Step 3 · Booking Details
@@ -99,22 +106,8 @@
             <form id="bookingForm" class="space-y-4">
               <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
                 <div>
-                  <label for="email" class="mb-2 block text-sm font-semibold">Email</label>
-                  <input id="email" type="email" placeholder="name@example.com" required
-                    class="w-full rounded-2xl border border-slate-300 px-4 py-3 text-sm outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100" />
-                </div>
-
-                <div>
-                  <label for="contact" class="mb-2 block text-sm font-semibold">Contact Number</label>
-                  <input id="contact" type="tel" placeholder="91234567" required
-                    class="w-full rounded-2xl border border-slate-300 px-4 py-3 text-sm outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100" />
-                </div>
-              </div>
-
-              <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
-                <div>
-                  <label for="rank" class="mb-2 block text-sm font-semibold">Rank</label>
-                  <input id="rank" type="text" placeholder="CPT / SSG / ME2" required
+                  <label for="rankName" class="mb-2 block text-sm font-semibold">Rank &amp; Name</label>
+                  <input id="rankName" type="text" placeholder="e.g. CPT Tan Ah Kow" required
                     class="w-full rounded-2xl border border-slate-300 px-4 py-3 text-sm outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100" />
                 </div>
 
@@ -125,10 +118,18 @@
                 </div>
               </div>
 
-              <div>
-                <label for="name" class="mb-2 block text-sm font-semibold">Name</label>
-                <input id="name" type="text" placeholder="Full name" required
-                  class="w-full rounded-2xl border border-slate-300 px-4 py-3 text-sm outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100" />
+              <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+                <div>
+                  <label for="contact" class="mb-2 block text-sm font-semibold">Contact Number</label>
+                  <input id="contact" type="tel" placeholder="91234567" required
+                    class="w-full rounded-2xl border border-slate-300 px-4 py-3 text-sm outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100" />
+                </div>
+
+                <div>
+                  <label for="email" class="mb-2 block text-sm font-semibold">Email</label>
+                  <input id="email" type="email" placeholder="name@example.com" required
+                    class="w-full rounded-2xl border border-slate-300 px-4 py-3 text-sm outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100" />
+                </div>
               </div>
 
               <div>
@@ -138,7 +139,8 @@
               </div>
 
               <div id="errorText" class="hidden rounded-2xl bg-red-50 px-4 py-3 text-sm font-medium text-red-700"></div>
-              <div id="statusText" class="hidden rounded-2xl bg-blue-50 px-4 py-3 text-sm font-medium text-blue-700"></div>
+              <div id="statusText" class="hidden rounded-2xl bg-blue-50 px-4 py-3 text-sm font-medium text-blue-700">
+              </div>
 
               <div class="flex flex-col gap-3 pt-2 sm:flex-row sm:flex-wrap">
                 <button id="submitBtn" type="submit"
@@ -154,6 +156,7 @@
             </form>
           </div>
 
+          <!-- All Bookings -->
           <div class="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5 lg:p-6">
             <div class="mb-4 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
               <div>
@@ -166,42 +169,30 @@
               </div>
 
               <div class="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
-                <input
-                  type="date"
-                  id="bookingsDateFilter"
-                  class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm"
-                />
+                <input type="date" id="bookingsDateFilter"
+                  class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm" />
 
-                <button
-                  id="refreshBookingsBtn"
-                  type="button"
-                  class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-semibold hover:bg-slate-50"
-                >
+                <button id="refreshBookingsBtn" type="button"
+                  class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-semibold hover:bg-slate-50">
                   Refresh
                 </button>
 
-                <button
-                  id="clearDateFilterBtn"
-                  type="button"
-                  class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-semibold hover:bg-slate-50"
-                >
+                <button id="clearDateFilterBtn" type="button"
+                  class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-semibold hover:bg-slate-50">
                   Show All Dates
                 </button>
               </div>
             </div>
 
             <div class="overflow-auto rounded-2xl border border-slate-200">
-              <table class="min-w-[980px] w-full border-collapse">
+              <table class="min-w-[760px] w-full border-collapse">
                 <thead class="bg-slate-50">
                   <tr class="text-left text-[11px] uppercase tracking-wide text-slate-500">
-                    <th class="px-4 py-3">Booking ID</th>
                     <th class="px-4 py-3">Status</th>
                     <th class="px-4 py-3">Date</th>
                     <th class="px-4 py-3">Time</th>
-                    <th class="px-4 py-3">Name</th>
-                    <th class="px-4 py-3">Rank</th>
+                    <th class="px-4 py-3">Rank &amp; Name</th>
                     <th class="px-4 py-3">Unit</th>
-                    <th class="px-4 py-3">Email</th>
                     <th class="px-4 py-3">Contact</th>
                     <th class="px-4 py-3">Event</th>
                     <th class="px-4 py-3">Venue</th>
@@ -210,7 +201,7 @@
                 </thead>
                 <tbody id="bookingsTableBody">
                   <tr>
-                    <td colspan="12" class="px-4 py-8 text-center text-sm text-slate-500">
+                    <td colspan="9" class="px-4 py-8 text-center text-sm text-slate-500">
                       Loading bookings...
                     </td>
                   </tr>
@@ -220,6 +211,7 @@
           </div>
         </section>
 
+        <!-- Right Column -->
         <aside class="space-y-5">
           <div class="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5 lg:p-6 xl:sticky xl:top-20">
             <p class="mb-4 text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500">
@@ -227,18 +219,38 @@
             </p>
 
             <div class="space-y-3">
-              <div class="flex justify-between gap-4 border-b border-slate-100 pb-3"><span class="text-sm text-slate-500">Venue</span><strong class="text-sm text-right">PLC Football Field</strong></div>
-              <div class="flex justify-between gap-4 border-b border-slate-100 pb-3"><span class="text-sm text-slate-500">Date</span><strong id="summaryDate" class="text-sm text-right">-</strong></div>
-              <div class="flex justify-between gap-4 border-b border-slate-100 pb-3"><span class="text-sm text-slate-500">Time</span><strong id="summaryTime" class="text-sm text-right">-</strong></div>
-              <div class="flex justify-between gap-4 border-b border-slate-100 pb-3"><span class="text-sm text-slate-500">Duration</span><strong class="text-sm text-right">2 hours</strong></div>
-              <div class="flex justify-between gap-4 border-b border-slate-100 pb-3"><span class="text-sm text-slate-500">Name</span><strong id="summaryName" class="text-sm text-right">-</strong></div>
-              <div class="flex justify-between gap-4 border-b border-slate-100 pb-3"><span class="text-sm text-slate-500">Rank</span><strong id="summaryRank" class="text-sm text-right">-</strong></div>
-              <div class="flex justify-between gap-4 border-b border-slate-100 pb-3"><span class="text-sm text-slate-500">Unit</span><strong id="summaryUnit" class="text-sm text-right">-</strong></div>
-              <div class="flex justify-between gap-4 border-b border-slate-100 pb-3"><span class="text-sm text-slate-500">Email</span><strong id="summaryEmail" class="text-sm text-right">-</strong></div>
-              <div class="flex justify-between gap-4 border-b border-slate-100 pb-3"><span class="text-sm text-slate-500">Contact</span><strong id="summaryContact" class="text-sm text-right">-</strong></div>
-              <div class="flex justify-between gap-4 border-b border-slate-100 pb-3"><span class="text-sm text-slate-500">Event</span><strong id="summaryEvent" class="text-sm text-right">-</strong></div>
-              <div class="flex justify-between gap-4 border-b border-slate-100 pb-3"><span class="text-sm text-slate-500">Booking ID</span><strong id="summaryBookingId" class="text-sm text-right">-</strong></div>
-              <div class="flex justify-between gap-4"><span class="text-sm text-slate-500">Status</span><strong id="summaryStatus" class="text-sm text-right">Draft</strong></div>
+              <div class="flex justify-between gap-4 border-b border-slate-100 pb-3"><span
+                  class="text-sm text-slate-500">Venue</span><strong class="text-sm text-right">PLC Football
+                  Field</strong></div>
+              <div class="flex justify-between gap-4 border-b border-slate-100 pb-3"><span
+                  class="text-sm text-slate-500">Date</span><strong id="summaryDate"
+                  class="text-sm text-right">-</strong></div>
+              <div class="flex justify-between gap-4 border-b border-slate-100 pb-3"><span
+                  class="text-sm text-slate-500">Time</span><strong id="summaryTime"
+                  class="text-sm text-right">-</strong></div>
+              <div class="flex justify-between gap-4 border-b border-slate-100 pb-3"><span
+                  class="text-sm text-slate-500">Duration</span><strong class="text-sm text-right">2 hours</strong>
+              </div>
+              <div class="flex justify-between gap-4 border-b border-slate-100 pb-3"><span
+                  class="text-sm text-slate-500">Rank &amp; Name</span><strong id="summaryRankName"
+                  class="text-sm text-right">-</strong></div>
+              <div class="flex justify-between gap-4 border-b border-slate-100 pb-3"><span
+                  class="text-sm text-slate-500">Unit</span><strong id="summaryUnit"
+                  class="text-sm text-right">-</strong></div>
+              <div class="flex justify-between gap-4 border-b border-slate-100 pb-3"><span
+                  class="text-sm text-slate-500">Contact</span><strong id="summaryContact"
+                  class="text-sm text-right">-</strong></div>
+              <div class="flex justify-between gap-4 border-b border-slate-100 pb-3"><span
+                  class="text-sm text-slate-500">Email</span><strong id="summaryEmail"
+                  class="text-sm text-right">-</strong></div>
+              <div class="flex justify-between gap-4 border-b border-slate-100 pb-3"><span
+                  class="text-sm text-slate-500">Event</span><strong id="summaryEvent"
+                  class="text-sm text-right">-</strong></div>
+              <div class="flex justify-between gap-4 border-b border-slate-100 pb-3"><span
+                  class="text-sm text-slate-500">Booking ID</span><strong id="summaryBookingId"
+                  class="text-sm text-right">-</strong></div>
+              <div class="flex justify-between gap-4"><span class="text-sm text-slate-500">Status</span><strong
+                  id="summaryStatus" class="text-sm text-right">Draft</strong></div>
             </div>
 
             <div id="confirmationBox" class="hidden mt-5 rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
@@ -251,18 +263,12 @@
             </div>
 
             <div id="footerActions" class="hidden mt-4 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
-              <button
-                id="changeBookingBtn"
-                type="button"
-                class="rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm font-bold hover:bg-slate-50"
-              >
+              <button id="changeBookingBtn" type="button"
+                class="rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm font-bold hover:bg-slate-50">
                 Change booking
               </button>
-              <button
-                id="cancelBookingBtn"
-                type="button"
-                class="rounded-2xl border border-red-200 bg-white px-4 py-3 text-sm font-bold text-red-700 hover:bg-red-50"
-              >
+              <button id="cancelBookingBtn" type="button"
+                class="rounded-2xl border border-red-200 bg-white px-4 py-3 text-sm font-bold text-red-700 hover:bg-red-50">
                 Cancel booking
               </button>
             </div>
@@ -275,29 +281,18 @@
               <div class="space-y-4">
                 <div>
                   <label for="searchBookingId" class="mb-2 block text-sm font-semibold">Booking ID</label>
-                  <input
-                    id="searchBookingId"
-                    type="text"
-                    placeholder="BK-202603..."
-                    class="w-full rounded-2xl border border-slate-300 px-4 py-3 text-sm outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
-                  />
+                  <input id="searchBookingId" type="text" placeholder="BK0001"
+                    class="w-full rounded-2xl border border-slate-300 px-4 py-3 text-sm outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100" />
                 </div>
 
                 <div>
                   <label for="searchEmail" class="mb-2 block text-sm font-semibold">Email</label>
-                  <input
-                    id="searchEmail"
-                    type="email"
-                    placeholder="Enter email for verification"
-                    class="w-full rounded-2xl border border-slate-300 px-4 py-3 text-sm outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
-                  />
+                  <input id="searchEmail" type="email" placeholder="Enter email for verification"
+                    class="w-full rounded-2xl border border-slate-300 px-4 py-3 text-sm outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100" />
                 </div>
 
-                <button
-                  id="findBookingBtn"
-                  type="button"
-                  class="rounded-2xl border border-slate-300 bg-white px-5 py-3 text-sm font-bold hover:bg-slate-50"
-                >
+                <button id="findBookingBtn" type="button"
+                  class="rounded-2xl border border-slate-300 bg-white px-5 py-3 text-sm font-bold hover:bg-slate-50">
                   Load Booking
                 </button>
               </div>
@@ -310,4 +305,5 @@
 
   <script src="./script.js"></script>
 </body>
+
 </html>
