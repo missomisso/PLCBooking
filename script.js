@@ -1,7 +1,12 @@
+const CURRENT_VENUE = window.BOOKING_VENUE || {
+  key: "football",
+  name: "PLC Football Field"
+};
+
 const CONFIG = {
-  venue: "PLC Football Field",
+  venue: CURRENT_VENUE.name,
   slotDuration: "2 hours",
-  appsScriptUrl: "https://script.google.com/macros/s/AKfycbxCWYpy7J1wIKPK5hOIzg6TtDzqn_1VI_DjuWf6ZTEx5kA6T1kEWHDwlSQf8IEZk5XY-Q/exec"
+  appsScriptUrl: "https://script.google.com/macros/s/AKfycbxnZoACAnTQMGBXR7Wk5yp8tZCl1O8JXv9O6gxcB9Bbk6VP3bAIz9ihzWEoEY2eG2mw6Q/exec"
 };
 
 const monthNames = [
@@ -25,20 +30,18 @@ const state = {
   allBookings: [],
   currentBookingId: null,
   currentStatus: "Draft",
-  isEditingExistingBooking: false,
-  filterBySelectedDate: false
+  isEditingExistingBooking: false
 };
+
+const pageTitle = document.getElementById("pageTitle");
+const summaryVenue = document.getElementById("summaryVenue");
+const venueBadge = document.getElementById("venueBadge");
 
 const monthSelect = document.getElementById("monthSelect");
 const yearSelect = document.getElementById("yearSelect");
 const calendarGrid = document.getElementById("calendarGrid");
 const slotsContainer = document.getElementById("slots");
 const selectedDateTime = document.getElementById("selectedDateTime");
-const selectedDateLabel = document.getElementById("selectedDateLabel");
-const bookingsTableBody = document.getElementById("bookingsTableBody");
-const bookingsDateFilter = document.getElementById("bookingsDateFilter");
-const refreshBookingsBtn = document.getElementById("refreshBookingsBtn");
-const clearDateFilterBtn = document.getElementById("clearDateFilterBtn");
 
 const form = document.getElementById("bookingForm");
 const submitBtn = document.getElementById("submitBtn");
@@ -69,6 +72,27 @@ const summary = {
   status: document.getElementById("summaryStatus")
 };
 
+function applyVenueToPage() {
+  const pageNames = {
+    "PLC Football Field": "Football Field",
+    "PLC Basketball Court": "Basketball Court"
+  };
+
+  const venueBadges = {
+    "PLC Football Field": "⚽ Football",
+    "PLC Basketball Court": "🏀 Basketball"
+  };
+
+  const shortName = pageNames[CONFIG.venue] || CONFIG.venue;
+  const badgeLabel = venueBadges[CONFIG.venue] || shortName;
+
+  document.title = shortName;
+
+  if (pageTitle) pageTitle.textContent = shortName;
+  if (summaryVenue) summaryVenue.textContent = shortName;
+  if (venueBadge) venueBadge.textContent = badgeLabel;
+}
+
 function escapeHtml(value) {
   return String(value || "")
     .replace(/&/g, "&amp;")
@@ -79,16 +103,19 @@ function escapeHtml(value) {
 }
 
 function setError(message) {
+  if (!errorText) return;
   errorText.textContent = message;
   errorText.className = "rounded-2xl bg-red-50 px-4 py-3 text-sm font-medium text-red-700";
 }
 
 function clearError() {
+  if (!errorText) return;
   errorText.textContent = "";
   errorText.className = "hidden rounded-2xl bg-red-50 px-4 py-3 text-sm font-medium text-red-700";
 }
 
 function setStatus(message, type = "info") {
+  if (!statusText) return;
   statusText.textContent = message;
 
   if (type === "success") {
@@ -101,6 +128,7 @@ function setStatus(message, type = "info") {
 }
 
 function clearStatus() {
+  if (!statusText) return;
   statusText.textContent = "";
   statusText.className = "hidden rounded-2xl bg-blue-50 px-4 py-3 text-sm font-medium text-blue-700";
 }
@@ -114,7 +142,6 @@ function getIsoDate(date) {
 
 function formatDisplayDate(date) {
   if (!date) return "-";
-
   const d = new Date(date);
   if (isNaN(d.getTime())) return "-";
 
@@ -125,27 +152,11 @@ function formatDisplayDate(date) {
   });
 }
 
-function formatIsoDateToDisplay(isoDate) {
-  if (!isoDate) return "-";
-
-  const parts = String(isoDate).split("-");
-  if (parts.length !== 3) return String(isoDate);
-
-  const [year, month, day] = parts.map(Number);
-  const d = new Date(year, month - 1, day);
-  if (isNaN(d.getTime())) return String(isoDate);
-
-  return formatDisplayDate(d);
-}
-
 function normalizeTimeString(value) {
   if (!value) return "-";
-
   const raw = String(value).trim();
 
-  if (/^\d{2}:\d{2}$/.test(raw)) {
-    return raw;
-  }
+  if (/^\d{2}:\d{2}$/.test(raw)) return raw;
 
   const d = new Date(raw);
   if (!isNaN(d.getTime())) {
@@ -159,47 +170,8 @@ function normalizeTimeString(value) {
   return raw;
 }
 
-function getStatusBadge(status) {
-  const value = String(status || "").toLowerCase();
-
-  if (value === "confirmed") {
-    return `<span class="inline-flex rounded-full bg-blue-50 px-3 py-1 text-xs font-bold text-blue-700">Confirmed</span>`;
-  }
-  if (value === "updated") {
-    return `<span class="inline-flex rounded-full bg-violet-50 px-3 py-1 text-xs font-bold text-violet-700">Updated</span>`;
-  }
-  if (value === "cancelled") {
-    return `<span class="inline-flex rounded-full bg-red-50 px-3 py-1 text-xs font-bold text-red-700">Cancelled</span>`;
-  }
-
-  return `<span class="inline-flex rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-700">${escapeHtml(status || "-")}</span>`;
-}
-
-function buildContactLink(booking) {
-  const email = (booking.email || "").trim();
-
-  if (!email) {
-    return `<span class="text-xs font-semibold text-slate-400">No email</span>`;
-  }
-
-  const subject = encodeURIComponent(`PLC Booking Enquiry - ${booking.bookingId || ""}`);
-  const body = encodeURIComponent(
-    `Hi ${booking.rankName || ""},\n\nI’m contacting you regarding your booking for ${CONFIG.venue} on ${formatIsoDateToDisplay(booking.bookingDate || "")} at ${normalizeTimeString(booking.bookingTime || "")}.\n\nRegards,`
-  );
-
-  return `
-    <a
-      class="inline-flex rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs font-bold text-slate-800 transition hover:bg-slate-50"
-      href="mailto:${email}?subject=${subject}&body=${body}"
-    >
-      Contact
-    </a>
-  `;
-}
-
 async function apiRequest(params) {
   const url = new URL(CONFIG.appsScriptUrl);
-
   Object.entries(params).forEach(([key, value]) => {
     url.searchParams.set(key, value ?? "");
   });
@@ -212,23 +184,22 @@ async function apiRequest(params) {
       redirect: "follow",
       cache: "no-store"
     });
-  } catch (networkError) {
+  } catch {
     throw new Error("Failed to fetch. Check Apps Script URL or deployment.");
   }
 
   const rawText = await response.text();
 
-  let data;
   try {
-    data = JSON.parse(rawText);
-  } catch (parseError) {
+    return JSON.parse(rawText);
+  } catch {
     throw new Error(`Apps Script did not return valid JSON: ${rawText.slice(0, 200)}`);
   }
-
-  return data;
 }
 
 function populateSelectors() {
+  if (!monthSelect || !yearSelect) return;
+
   monthSelect.innerHTML = "";
   yearSelect.innerHTML = "";
 
@@ -250,6 +221,8 @@ function populateSelectors() {
 }
 
 function updateSummary() {
+  if (!summary.date) return;
+
   summary.date.textContent = state.selectedDate ? formatDisplayDate(state.selectedDate) : "-";
   summary.time.textContent = state.selectedSlot || "-";
   summary.rankName.textContent = inputs.rankName.value || "-";
@@ -260,13 +233,16 @@ function updateSummary() {
   summary.bookingId.textContent = state.currentBookingId || "-";
   summary.status.textContent = state.currentStatus || "Draft";
 
-  selectedDateTime.textContent =
-    state.selectedDate && state.selectedSlot
-      ? `${formatDisplayDate(state.selectedDate)} • ${state.selectedSlot}`
-      : "Select a date and slot";
+  if (selectedDateTime) {
+    selectedDateTime.textContent =
+      state.selectedDate && state.selectedSlot
+        ? `${formatDisplayDate(state.selectedDate)} • ${state.selectedSlot}`
+        : "Select a date and slot";
+  }
 }
 
 function renderCalendar() {
+  if (!calendarGrid) return;
   calendarGrid.innerHTML = "";
 
   const firstDay = new Date(state.currentYear, state.currentMonth, 1);
@@ -297,8 +273,7 @@ function renderCalendar() {
       state.selectedDate &&
       thisDate.getTime() === new Date(state.selectedDate).setHours(0, 0, 0, 0);
 
-    let className =
-      "h-11 sm:h-12 rounded-2xl text-sm sm:text-[15px] font-bold transition border ";
+    let className = "h-11 sm:h-12 rounded-2xl text-sm sm:text-[15px] font-bold transition border ";
 
     if (isPast) {
       className += "bg-slate-100 text-slate-300 border-slate-100 cursor-not-allowed";
@@ -316,17 +291,10 @@ function renderCalendar() {
     btn.addEventListener("click", () => {
       state.selectedDate = thisDate;
       state.selectedSlot = null;
-      state.filterBySelectedDate = true;
-
-      if (bookingsDateFilter) {
-        bookingsDateFilter.value = "";
-      }
-
       renderCalendar();
       updateSummary();
       hideConfirmation();
       renderSlots();
-      renderBookingsTable();
     });
 
     calendarGrid.appendChild(btn);
@@ -334,6 +302,7 @@ function renderCalendar() {
 }
 
 function renderSlots() {
+  if (!slotsContainer) return;
   slotsContainer.innerHTML = "";
 
   slotTimes.forEach((time) => {
@@ -341,10 +310,7 @@ function renderSlots() {
     btn.type = "button";
 
     const bookingForThisSlot = state.allBookings.find((booking) => {
-      const sameDate =
-        state.selectedDate &&
-        booking.bookingDate === getIsoDate(state.selectedDate);
-
+      const sameDate = state.selectedDate && booking.bookingDate === getIsoDate(state.selectedDate);
       const sameTime = normalizeTimeString(booking.bookingTime) === time;
       const sameVenue = booking.venue === CONFIG.venue;
       const active = booking.status !== "Cancelled";
@@ -356,8 +322,7 @@ function renderSlots() {
     const isDisabled = !!bookingForThisSlot;
     const isSelected = state.selectedSlot === time;
 
-    let className =
-      "w-full rounded-2xl border p-4 text-left transition min-h-[92px] ";
+    let className = "w-full rounded-2xl border p-4 text-left transition min-h-[92px] ";
 
     if (isSelected) {
       className += "bg-slate-900 text-white border-slate-900 shadow-md";
@@ -368,14 +333,17 @@ function renderSlots() {
       className += "bg-white text-slate-900 border-slate-200 hover:border-slate-300 hover:shadow-sm hover:-translate-y-[1px]";
     }
 
-    btn.className = className;
+    const bookedLabel = bookingForThisSlot
+      ? `Booked by ${escapeHtml(bookingForThisSlot.rankName || "-")}, ${escapeHtml(bookingForThisSlot.contact || "-")}`
+      : "Available";
 
+    btn.className = className;
     btn.innerHTML = `
       <div class="flex items-start justify-between gap-3">
         <div>
           <div class="text-base font-extrabold">${time}</div>
           <div class="mt-1 text-xs sm:text-sm ${isSelected ? "text-slate-200" : isDisabled ? "text-slate-400" : "text-slate-500"}">
-            ${bookingForThisSlot ? `Booked by ${escapeHtml(bookingForThisSlot.rankName)}` : "Available"}
+            ${bookedLabel}
           </div>
         </div>
         <div class="shrink-0">
@@ -405,67 +373,49 @@ function renderSlots() {
   });
 }
 
-function renderBookingsTable() {
-  try {
-    if (!bookingsTableBody) {
-      setStatus("Bookings table body not found in HTML.", "error");
-      return;
-    }
+function hideConfirmation() {
+  if (confirmationBox) confirmationBox.classList.add("hidden");
+  if (footerActions) footerActions.classList.add("hidden");
+}
 
-    let bookings = Array.isArray(state.allBookings) ? [...state.allBookings] : [];
-    const selectedFilterDate = bookingsDateFilter ? bookingsDateFilter.value : "";
-
-    if (selectedFilterDate) {
-      bookings = bookings.filter((booking) => booking.bookingDate === selectedFilterDate);
-      if (selectedDateLabel) {
-        selectedDateLabel.textContent = `Showing bookings for ${formatIsoDateToDisplay(selectedFilterDate)}.`;
-      }
-    } else if (state.filterBySelectedDate && state.selectedDate) {
-      const selectedIsoDate = getIsoDate(state.selectedDate);
-      bookings = bookings.filter((booking) => booking.bookingDate === selectedIsoDate);
-      if (selectedDateLabel) {
-        selectedDateLabel.textContent = `Showing bookings for ${formatDisplayDate(state.selectedDate)}.`;
-      }
-    } else {
-      if (selectedDateLabel) {
-        selectedDateLabel.textContent = "Showing all bookings. Select a date to filter.";
-      }
-    }
-
-    bookings.sort((a, b) => {
-      const aKey = `${a.bookingDate || ""} ${normalizeTimeString(a.bookingTime || "")}`;
-      const bKey = `${b.bookingDate || ""} ${normalizeTimeString(b.bookingTime || "")}`;
-      return aKey.localeCompare(bKey);
-    });
-
-    if (!bookings.length) {
-      bookingsTableBody.innerHTML = `
-        <tr>
-          <td colspan="9" class="px-4 py-8 text-center text-sm text-slate-500">
-            No bookings found.
-          </td>
-        </tr>
-      `;
-      return;
-    }
-
-    bookingsTableBody.innerHTML = bookings.map((booking) => `
-      <tr class="border-b border-slate-100">
-        <td class="px-4 py-3">${getStatusBadge(booking.status)}</td>
-        <td class="px-4 py-3">${escapeHtml(formatIsoDateToDisplay(booking.bookingDate || ""))}</td>
-        <td class="px-4 py-3">${escapeHtml(normalizeTimeString(booking.bookingTime || ""))}</td>
-        <td class="px-4 py-3">${escapeHtml(booking.rankName || "-")}</td>
-        <td class="px-4 py-3">${escapeHtml(booking.unit || "-")}</td>
-        <td class="px-4 py-3">${escapeHtml(booking.contact || "-")}</td>
-        <td class="px-4 py-3">${escapeHtml(booking.eventName || "-")}</td>
-        <td class="px-4 py-3">${escapeHtml(booking.venue || "-")}</td>
-        <td class="px-4 py-3">${buildContactLink(booking)}</td>
-      </tr>
-    `).join("");
-  } catch (error) {
-    console.error("renderBookingsTable failed:", error);
-    setStatus(`Failed while rendering bookings table: ${error.message}`, "error");
+function showConfirmation() {
+  if (confirmDateTime) {
+    confirmDateTime.textContent = `${formatDisplayDate(state.selectedDate)} • ${state.selectedSlot}`;
   }
+  if (confirmBookingId) {
+    confirmBookingId.textContent = `Booking ID: ${state.currentBookingId || "-"}`;
+  }
+  if (confirmationBox) confirmationBox.classList.remove("hidden");
+  if (footerActions) footerActions.classList.remove("hidden");
+}
+
+function getFormPayload() {
+  return {
+    rankName: inputs.rankName.value.trim(),
+    unit: inputs.unit.value.trim(),
+    contact: inputs.contact.value.trim(),
+    email: inputs.email.value.trim(),
+    eventName: inputs.eventName.value.trim(),
+    venue: CONFIG.venue,
+    bookingDate: state.selectedDate ? getIsoDate(state.selectedDate) : "",
+    bookingTime: state.selectedSlot || "",
+    duration: CONFIG.slotDuration,
+    bookingId: state.currentBookingId || ""
+  };
+}
+
+async function loadAllBookings() {
+  const data = await apiRequest({
+    action: "listBookings",
+    venue: CONFIG.venue
+  });
+
+  if (!data.success) {
+    throw new Error(data.message || "Failed to load bookings.");
+  }
+
+  state.allBookings = Array.isArray(data.bookings) ? data.bookings : [];
+  renderSlots();
 }
 
 function loadBookingIntoForm(booking) {
@@ -485,87 +435,28 @@ function loadBookingIntoForm(booking) {
     state.selectedDate = selected;
     state.currentMonth = selected.getMonth();
     state.currentYear = selected.getFullYear();
-    monthSelect.value = state.currentMonth;
-    yearSelect.value = state.currentYear;
+    if (monthSelect) monthSelect.value = state.currentMonth;
+    if (yearSelect) yearSelect.value = state.currentYear;
   }
 
   state.selectedSlot = normalizeTimeString(booking.bookingTime) || null;
-  state.filterBySelectedDate = true;
-
-  if (bookingsDateFilter) {
-    bookingsDateFilter.value = "";
-  }
 
   submitBtn.textContent = booking.status === "Cancelled" ? "Submit Booking" : "Save Changes";
 
   updateSummary();
   renderCalendar();
   renderSlots();
-  renderBookingsTable();
-  hideConfirmation();
   clearError();
-  setStatus(`Loaded booking ${booking.bookingId}.`, "info");
-  window.scrollTo({ top: 0, behavior: "smooth" });
-}
 
-function hideConfirmation() {
-  confirmationBox.classList.add("hidden");
-  footerActions.classList.add("hidden");
-}
-
-function showConfirmation() {
-  confirmDateTime.textContent = `${formatDisplayDate(state.selectedDate)} • ${state.selectedSlot}`;
-  confirmBookingId.textContent = `Booking ID: ${state.currentBookingId || "-"}`;
-  confirmationBox.classList.remove("hidden");
-  footerActions.classList.remove("hidden");
-}
-
-function resetBookingState() {
-  state.selectedSlot = null;
-  state.currentBookingId = null;
-  state.currentStatus = "Draft";
-  state.isEditingExistingBooking = false;
-  submitBtn.textContent = "Submit Booking";
-  hideConfirmation();
-  clearError();
-  clearStatus();
-  updateSummary();
-  renderSlots();
-}
-
-function getFormPayload() {
-  return {
-    rankName: inputs.rankName.value.trim(),
-    unit: inputs.unit.value.trim(),
-    contact: inputs.contact.value.trim(),
-    email: inputs.email.value.trim(),
-    eventName: inputs.eventName.value.trim(),
-    venue: CONFIG.venue,
-    bookingDate: state.selectedDate ? getIsoDate(state.selectedDate) : "",
-    bookingTime: state.selectedSlot || "",
-    duration: CONFIG.slotDuration,
-    bookingId: state.currentBookingId || ""
-  };
-}
-
-async function loadAllBookings() {
-  try {
-    const data = await apiRequest({
-      action: "listBookings",
-      venue: CONFIG.venue
-    });
-
-    if (!data.success) {
-      throw new Error(data.message || "Failed to load bookings.");
-    }
-
-    state.allBookings = Array.isArray(data.bookings) ? data.bookings : [];
-    renderSlots();
-    renderBookingsTable();
-  } catch (error) {
-    console.error("loadAllBookings failed:", error);
-    setStatus(error.message || "Failed to load bookings.", "error");
+  if (booking.status === "Cancelled") {
+    hideConfirmation();
+    setStatus(`Loaded cancelled booking ${booking.bookingId}.`, "info");
+  } else {
+    showConfirmation();
+    setStatus(`Loaded booking ${booking.bookingId}. You can edit or cancel it.`, "info");
   }
+
+  window.scrollTo({ top: 0, behavior: "smooth" });
 }
 
 async function createBooking() {
@@ -599,9 +490,7 @@ async function cancelBooking() {
       bookingId: state.currentBookingId
     });
 
-    if (!data.success) {
-      throw new Error(data.message || "Cancel failed.");
-    }
+    if (!data.success) throw new Error(data.message || "Cancel failed.");
 
     state.currentStatus = "Cancelled";
     updateSummary();
@@ -614,8 +503,11 @@ async function cancelBooking() {
 }
 
 async function findBooking() {
-  const bookingId = document.getElementById("searchBookingId").value.trim();
-  const email = document.getElementById("searchEmail").value.trim();
+  const bookingIdInput = document.getElementById("searchBookingId");
+  const emailInput = document.getElementById("searchEmail");
+
+  const bookingId = bookingIdInput ? bookingIdInput.value.trim() : "";
+  const email = emailInput ? emailInput.value.trim() : "";
 
   if (!bookingId) {
     setStatus("Please enter a Booking ID.", "error");
@@ -641,179 +533,173 @@ async function findBooking() {
   }
 }
 
-monthSelect.addEventListener("change", () => {
-  state.currentMonth = Number(monthSelect.value);
-  renderCalendar();
-});
+if (monthSelect) {
+  monthSelect.addEventListener("change", () => {
+    state.currentMonth = Number(monthSelect.value);
+    renderCalendar();
+  });
+}
 
-yearSelect.addEventListener("change", () => {
-  state.currentYear = Number(yearSelect.value);
-  renderCalendar();
-});
+if (yearSelect) {
+  yearSelect.addEventListener("change", () => {
+    state.currentYear = Number(yearSelect.value);
+    renderCalendar();
+  });
+}
 
-document.getElementById("prevMonth").addEventListener("click", () => {
-  state.currentMonth--;
-  if (state.currentMonth < 0) {
-    state.currentMonth = 11;
-    state.currentYear--;
-  }
-  monthSelect.value = state.currentMonth;
-  yearSelect.value = state.currentYear;
-  renderCalendar();
-});
+const prevMonthBtn = document.getElementById("prevMonth");
+if (prevMonthBtn) {
+  prevMonthBtn.addEventListener("click", () => {
+    state.currentMonth--;
+    if (state.currentMonth < 0) {
+      state.currentMonth = 11;
+      state.currentYear--;
+    }
+    if (monthSelect) monthSelect.value = state.currentMonth;
+    if (yearSelect) yearSelect.value = state.currentYear;
+    renderCalendar();
+  });
+}
 
-document.getElementById("nextMonth").addEventListener("click", () => {
-  state.currentMonth++;
-  if (state.currentMonth > 11) {
-    state.currentMonth = 0;
-    state.currentYear++;
-  }
-  monthSelect.value = state.currentMonth;
-  yearSelect.value = state.currentYear;
-  renderCalendar();
-});
+const nextMonthBtn = document.getElementById("nextMonth");
+if (nextMonthBtn) {
+  nextMonthBtn.addEventListener("click", () => {
+    state.currentMonth++;
+    if (state.currentMonth > 11) {
+      state.currentMonth = 0;
+      state.currentYear++;
+    }
+    if (monthSelect) monthSelect.value = state.currentMonth;
+    if (yearSelect) yearSelect.value = state.currentYear;
+    renderCalendar();
+  });
+}
 
-document.getElementById("todayBtn").addEventListener("click", () => {
-  const today = new Date();
-  state.currentMonth = today.getMonth();
-  state.currentYear = today.getFullYear();
-  state.selectedDate = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-  state.selectedSlot = null;
-  state.filterBySelectedDate = true;
+const todayBtn = document.getElementById("todayBtn");
+if (todayBtn) {
+  todayBtn.addEventListener("click", () => {
+    const today = new Date();
+    state.currentMonth = today.getMonth();
+    state.currentYear = today.getFullYear();
+    state.selectedDate = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    state.selectedSlot = null;
 
-  if (bookingsDateFilter) {
-    bookingsDateFilter.value = "";
-  }
+    if (monthSelect) monthSelect.value = state.currentMonth;
+    if (yearSelect) yearSelect.value = state.currentYear;
 
-  monthSelect.value = state.currentMonth;
-  yearSelect.value = state.currentYear;
-  renderCalendar();
-  updateSummary();
-  renderSlots();
-  renderBookingsTable();
-});
+    renderCalendar();
+    updateSummary();
+    renderSlots();
+  });
+}
 
 Object.values(inputs).forEach((input) => {
-  input.addEventListener("input", updateSummary);
+  if (input) input.addEventListener("input", updateSummary);
 });
 
-document.getElementById("resetBtn").addEventListener("click", () => {
-  setTimeout(() => {
-    resetBookingState();
-  }, 0);
-});
-
-document.getElementById("changeBookingBtn").addEventListener("click", () => {
-  if (!state.currentBookingId) {
-    setStatus("No booking loaded to change.", "error");
-    return;
-  }
-
-  state.isEditingExistingBooking = true;
-  state.currentStatus = "Updated";
-  submitBtn.textContent = "Save Changes";
-  hideConfirmation();
-  updateSummary();
-  setStatus(`Editing booking ${state.currentBookingId}. Make your changes and save.`, "info");
-  window.scrollTo({ top: 0, behavior: "smooth" });
-});
-
-document.getElementById("cancelBookingBtn").addEventListener("click", cancelBooking);
-document.getElementById("findBookingBtn").addEventListener("click", findBooking);
-document.getElementById("backBtn").addEventListener("click", () => {
-  window.history.back();
-});
-
-if (bookingsDateFilter) {
-  bookingsDateFilter.addEventListener("change", () => {
-    state.filterBySelectedDate = false;
-    renderBookingsTable();
-  });
-}
-
-if (refreshBookingsBtn) {
-  refreshBookingsBtn.addEventListener("click", async () => {
-    try {
-      setStatus("Refreshing bookings...", "info");
-      await loadAllBookings();
+const resetBtn = document.getElementById("resetBtn");
+if (resetBtn) {
+  resetBtn.addEventListener("click", () => {
+    setTimeout(() => {
+      state.selectedSlot = null;
+      state.currentBookingId = null;
+      state.currentStatus = "Draft";
+      state.isEditingExistingBooking = false;
+      submitBtn.textContent = "Submit Booking";
+      hideConfirmation();
+      clearError();
       clearStatus();
-    } catch (error) {
-      setStatus(error.message || "Failed to refresh bookings.", "error");
-    }
+      updateSummary();
+      renderSlots();
+    }, 0);
   });
 }
 
-if (clearDateFilterBtn) {
-  clearDateFilterBtn.addEventListener("click", () => {
-    if (bookingsDateFilter) {
-      bookingsDateFilter.value = "";
-    }
-    state.filterBySelectedDate = false;
-    renderBookingsTable();
-  });
-}
-
-form.addEventListener("submit", async (e) => {
-  e.preventDefault();
-  clearError();
-
-  if (!state.selectedDate || !state.selectedSlot) {
-    setError("Please select a date and time slot before submitting.");
-    return;
-  }
-
-  try {
-    submitBtn.disabled = true;
-    setStatus(state.currentBookingId ? "Saving booking..." : "Creating booking...", "info");
-
-    await loadAllBookings();
-
-    const selectedDateIso = getIsoDate(state.selectedDate);
-
-    const conflict = state.allBookings.find((booking) => {
-      const sameDate = booking.bookingDate === selectedDateIso;
-      const sameTime = normalizeTimeString(booking.bookingTime) === state.selectedSlot;
-      const sameVenue = booking.venue === CONFIG.venue;
-      const active = booking.status !== "Cancelled";
-      const differentBooking = booking.bookingId !== state.currentBookingId;
-
-      return sameDate && sameTime && sameVenue && active && differentBooking;
-    });
-
-    if (conflict) {
-      throw new Error(
-        `This slot is already booked by ${conflict.rankName}. It can only be booked again if that booking is cancelled.`
-      );
+const changeBookingBtn = document.getElementById("changeBookingBtn");
+if (changeBookingBtn) {
+  changeBookingBtn.addEventListener("click", () => {
+    if (!state.currentBookingId) {
+      setStatus("No booking loaded to change.", "error");
+      return;
     }
 
-    const wasEditing = !!state.currentBookingId;
-    const data = wasEditing ? await updateBooking() : await createBooking();
-
-    if (!data.success) {
-      throw new Error(data.message || "Something went wrong.");
-    }
-
-    state.currentBookingId = data.bookingId || state.currentBookingId;
-    state.currentStatus = wasEditing ? "Updated" : "Confirmed";
-    state.isEditingExistingBooking = false;
-    submitBtn.textContent = "Submit Booking";
-
+    state.isEditingExistingBooking = true;
+    state.currentStatus = "Updated";
+    submitBtn.textContent = "Save Changes";
+    hideConfirmation();
     updateSummary();
-    showConfirmation();
-    setStatus(`Booking ${state.currentBookingId} saved successfully.`, "success");
+    setStatus(`Editing booking ${state.currentBookingId}. Make your changes and save.`, "info");
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  });
+}
 
-    await loadAllBookings();
-  } catch (error) {
-    setStatus(error.message || "Failed to save booking.", "error");
-  } finally {
-    submitBtn.disabled = false;
-  }
-});
+const cancelBookingBtn = document.getElementById("cancelBookingBtn");
+if (cancelBookingBtn) cancelBookingBtn.addEventListener("click", cancelBooking);
+
+const findBookingBtn = document.getElementById("findBookingBtn");
+if (findBookingBtn) findBookingBtn.addEventListener("click", findBooking);
+
+if (form) {
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    clearError();
+
+    if (!state.selectedDate || !state.selectedSlot) {
+      setError("Please select a date and time slot before submitting.");
+      return;
+    }
+
+    try {
+      submitBtn.disabled = true;
+      setStatus(state.currentBookingId ? "Saving booking..." : "Creating booking...", "info");
+
+      await loadAllBookings();
+
+      const selectedDateIso = getIsoDate(state.selectedDate);
+
+      const conflict = state.allBookings.find((booking) => {
+        const sameDate = booking.bookingDate === selectedDateIso;
+        const sameTime = normalizeTimeString(booking.bookingTime) === state.selectedSlot;
+        const sameVenue = booking.venue === CONFIG.venue;
+        const active = booking.status !== "Cancelled";
+        const differentBooking = booking.bookingId !== state.currentBookingId;
+
+        return sameDate && sameTime && sameVenue && active && differentBooking;
+      });
+
+      if (conflict) {
+        throw new Error(
+          `This slot is already booked by ${conflict.rankName}. It can only be booked again if that booking is cancelled.`
+        );
+      }
+
+      const wasEditing = !!state.currentBookingId;
+      const data = wasEditing ? await updateBooking() : await createBooking();
+
+      if (!data.success) throw new Error(data.message || "Something went wrong.");
+
+      state.currentBookingId = data.bookingId || state.currentBookingId;
+      state.currentStatus = wasEditing ? "Updated" : "Confirmed";
+      state.isEditingExistingBooking = false;
+      submitBtn.textContent = "Submit Booking";
+
+      updateSummary();
+      showConfirmation();
+      setStatus(`Booking ${state.currentBookingId} saved successfully.`, "success");
+
+      await loadAllBookings();
+    } catch (error) {
+      setStatus(error.message || "Failed to save booking.", "error");
+    } finally {
+      submitBtn.disabled = false;
+    }
+  });
+}
 
 (async function init() {
+  applyVenueToPage();
   populateSelectors();
   renderCalendar();
-  renderSlots();
   updateSummary();
 
   try {
