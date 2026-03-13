@@ -1,7 +1,7 @@
 const CONFIG = {
   venue: "PLC Football Field",
   slotDuration: "2 hours",
-  appsScriptUrl: "https://script.google.com/macros/s/AKfycbw7nJGXe_fUnjx3cB-RJZSsJ37e5z2eWgyqASCs6gsluL4uT5cefR9QDuHP7nwmkMRoJw/exec"
+  appsScriptUrl: "https://script.google.com/macros/s/AKfycby9goymB9SL3zgFQe70CrvAtnP8n0fE9obSGIdIdG2KT_HcjdXt9x8KSTIXpBqHeGPX/exec"
 };
 
 const monthNames = [
@@ -14,7 +14,7 @@ const slotTimes = [
   "06:00", "08:00",
   "10:00", "12:00",
   "14:00", "16:00",
-  "6:00 PM", "8:00"
+  "18:00", "20:00"
 ];
 
 const state = {
@@ -36,6 +36,10 @@ const slotsContainer = document.getElementById("slots");
 const selectedDateTime = document.getElementById("selectedDateTime");
 const selectedDateLabel = document.getElementById("selectedDateLabel");
 const bookingsTableBody = document.getElementById("bookingsTableBody");
+const bookingsDateFilter = document.getElementById("bookingsDateFilter");
+const refreshBookingsBtn = document.getElementById("refreshBookingsBtn");
+const clearDateFilterBtn = document.getElementById("clearDateFilterBtn");
+
 const form = document.getElementById("bookingForm");
 const submitBtn = document.getElementById("submitBtn");
 const errorText = document.getElementById("errorText");
@@ -67,6 +71,145 @@ const summary = {
   status: document.getElementById("summaryStatus")
 };
 
+function escapeHtml(value) {
+  return String(value || "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+function setError(message) {
+  errorText.textContent = message;
+  errorText.classList.remove("hidden");
+  errorText.className = "rounded-2xl bg-red-50 px-4 py-3 text-sm font-medium text-red-700";
+}
+
+function clearError() {
+  errorText.textContent = "";
+  errorText.className = "hidden rounded-2xl bg-red-50 px-4 py-3 text-sm font-medium text-red-700";
+}
+
+function setStatus(message, type = "info") {
+  statusText.textContent = message;
+  statusText.classList.remove("hidden");
+
+  if (type === "success") {
+    statusText.className = "rounded-2xl bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-700";
+  } else if (type === "error") {
+    statusText.className = "rounded-2xl bg-red-50 px-4 py-3 text-sm font-medium text-red-700";
+  } else {
+    statusText.className = "rounded-2xl bg-blue-50 px-4 py-3 text-sm font-medium text-blue-700";
+  }
+}
+
+function clearStatus() {
+  statusText.textContent = "";
+  statusText.className = "hidden rounded-2xl bg-blue-50 px-4 py-3 text-sm font-medium text-blue-700";
+}
+
+function getIsoDate(date) {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
+
+function formatDisplayDate(date) {
+  if (!date) return "-";
+
+  const d = new Date(date);
+  if (isNaN(d.getTime())) return "-";
+
+  return d.toLocaleDateString("en-SG", {
+    weekday: "long",
+    month: "long",
+    day: "numeric"
+  });
+}
+
+function formatIsoDateToDisplay(isoDate) {
+  if (!isoDate) return "-";
+
+  const parts = String(isoDate).split("-");
+  if (parts.length !== 3) return String(isoDate);
+
+  const [year, month, day] = parts.map(Number);
+  const d = new Date(year, month - 1, day);
+  if (isNaN(d.getTime())) return String(isoDate);
+
+  return formatDisplayDate(d);
+}
+
+function normalizeTimeString(value) {
+  if (!value) return "-";
+
+  const raw = String(value).trim();
+
+  if (/^\d{2}:\d{2}$/.test(raw)) {
+    return raw;
+  }
+
+  const d = new Date(raw);
+  if (!isNaN(d.getTime())) {
+    return d.toLocaleTimeString("en-GB", {
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false
+    });
+  }
+
+  return raw;
+}
+
+function getStatusBadge(status) {
+  const value = String(status || "").toLowerCase();
+
+  if (value === "confirmed") {
+    return `<span class="inline-flex rounded-full bg-blue-50 px-3 py-1 text-xs font-bold text-blue-700">Confirmed</span>`;
+  }
+  if (value === "updated") {
+    return `<span class="inline-flex rounded-full bg-violet-50 px-3 py-1 text-xs font-bold text-violet-700">Updated</span>`;
+  }
+  if (value === "cancelled") {
+    return `<span class="inline-flex rounded-full bg-red-50 px-3 py-1 text-xs font-bold text-red-700">Cancelled</span>`;
+  }
+
+  return `<span class="inline-flex rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-700">${escapeHtml(status || "-")}</span>`;
+}
+
+async function apiRequest(params) {
+  const url = new URL(CONFIG.appsScriptUrl);
+
+  Object.entries(params).forEach(([key, value]) => {
+    url.searchParams.set(key, value ?? "");
+  });
+
+  let response;
+  try {
+    response = await fetch(url.toString(), {
+      method: "GET",
+      mode: "cors",
+      redirect: "follow",
+      cache: "no-store"
+    });
+  } catch (networkError) {
+    throw new Error("Failed to fetch. Check Apps Script URL or deployment.");
+  }
+
+  const rawText = await response.text();
+
+  let data;
+  try {
+    data = JSON.parse(rawText);
+  } catch (parseError) {
+    throw new Error(`Apps Script did not return valid JSON: ${rawText.slice(0, 200)}`);
+  }
+
+  return data;
+}
+
 function populateSelectors() {
   monthSelect.innerHTML = "";
   yearSelect.innerHTML = "";
@@ -88,85 +231,8 @@ function populateSelectors() {
   }
 }
 
-function formatDate(date) {
-  const day = String(date.getDate()).padStart(2, "0");
-  const month = monthNames[date.getMonth()].slice(0, 3);
-  const year = date.getFullYear();
-  return `${day} ${month} ${year}`;
-}
-
-function getIsoDate(date) {
-  const y = date.getFullYear();
-  const m = String(date.getMonth() + 1).padStart(2, "0");
-  const d = String(date.getDate()).padStart(2, "0");
-  return `${y}-${m}-${d}`;
-}
-
-function escapeHtml(value) {
-  return String(value || "")
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
-}
-
-function setError(message) {
-  errorText.textContent = message;
-  errorText.className = "error-text show";
-}
-
-function clearError() {
-  errorText.textContent = "";
-  errorText.className = "error-text";
-}
-
-function setStatus(message, type = "info") {
-  statusText.textContent = message;
-  statusText.className = `status-text show ${type}`;
-}
-
-function clearStatus() {
-  statusText.textContent = "";
-  statusText.className = "status-text";
-}
-
-async function apiRequest(params) {
-  const url = new URL(CONFIG.appsScriptUrl);
-
-  Object.entries(params).forEach(([key, value]) => {
-    url.searchParams.set(key, value ?? "");
-  });
-
-  console.log("Fetching URL:", url.toString());
-
-  let response;
-  try {
-    response = await fetch(url.toString(), {
-      method: "GET",
-      mode: "cors",
-      redirect: "follow",
-      cache: "no-store"
-    });
-  } catch (networkError) {
-    throw new Error("Failed to fetch. Check browser cache or deployed frontend.");
-  }
-
-  const rawText = await response.text();
-  console.log("Raw response:", rawText);
-
-  let data;
-  try {
-    data = JSON.parse(rawText);
-  } catch (parseError) {
-    throw new Error(`Apps Script did not return valid JSON: ${rawText.slice(0, 200)}`);
-  }
-
-  return data;
-}
-
 function updateSummary() {
-  summary.date.textContent = state.selectedDate ? formatDate(state.selectedDate) : "-";
+  summary.date.textContent = state.selectedDate ? formatDisplayDate(state.selectedDate) : "-";
   summary.time.textContent = state.selectedSlot || "-";
   summary.name.textContent = inputs.name.value || "-";
   summary.rank.textContent = inputs.rank.value || "-";
@@ -179,7 +245,7 @@ function updateSummary() {
 
   selectedDateTime.textContent =
     state.selectedDate && state.selectedSlot
-      ? `${formatDate(state.selectedDate)} • ${state.selectedSlot}`
+      ? `${formatDisplayDate(state.selectedDate)} • ${state.selectedSlot}`
       : "Select a date and slot";
 }
 
@@ -195,15 +261,14 @@ function renderCalendar() {
   today.setHours(0, 0, 0, 0);
 
   for (let i = 0; i < startDayIndex; i++) {
-    const empty = document.createElement("button");
-    empty.className = "day empty";
-    empty.disabled = true;
+    const empty = document.createElement("div");
+    empty.className = "h-11 sm:h-12";
     calendarGrid.appendChild(empty);
   }
 
   for (let day = 1; day <= totalDays; day++) {
     const btn = document.createElement("button");
-    btn.className = "day";
+    btn.type = "button";
     btn.textContent = day;
 
     const thisDate = new Date(state.currentYear, state.currentMonth, day);
@@ -215,17 +280,31 @@ function renderCalendar() {
       state.selectedDate &&
       thisDate.getTime() === new Date(state.selectedDate).setHours(0, 0, 0, 0);
 
-    if (isToday) btn.classList.add("today");
-    if (isSelected) btn.classList.add("selected");
+    let className =
+      "h-11 sm:h-12 rounded-2xl text-sm sm:text-[15px] font-bold transition border ";
+
     if (isPast) {
-      btn.classList.add("past");
+      className += "bg-slate-100 text-slate-300 border-slate-100 cursor-not-allowed";
       btn.disabled = true;
+    } else if (isSelected) {
+      className += "bg-slate-900 text-white border-slate-900 shadow-sm";
+    } else if (isToday) {
+      className += "bg-white text-slate-900 border-blue-300 hover:bg-blue-50";
+    } else {
+      className += "bg-white text-slate-800 border-slate-200 hover:bg-slate-50 hover:border-slate-300";
     }
 
-    btn.addEventListener("click", async () => {
+    btn.className = className;
+
+    btn.addEventListener("click", () => {
       state.selectedDate = thisDate;
       state.selectedSlot = null;
       state.filterBySelectedDate = true;
+
+      if (bookingsDateFilter) {
+        bookingsDateFilter.value = "";
+      }
+
       renderCalendar();
       updateSummary();
       hideConfirmation();
@@ -243,33 +322,57 @@ function renderSlots() {
   slotTimes.forEach((time) => {
     const btn = document.createElement("button");
     btn.type = "button";
-    btn.className = "slot-btn";
 
     const bookingForThisSlot = state.allBookings.find((booking) => {
-      const sameDate = state.selectedDate && booking.bookingDate === getIsoDate(state.selectedDate);
-      const sameTime = booking.bookingTime === time;
+      const sameDate =
+        state.selectedDate &&
+        booking.bookingDate === getIsoDate(state.selectedDate);
+
+      const sameTime = normalizeTimeString(booking.bookingTime) === time;
       const sameVenue = booking.venue === CONFIG.venue;
       const active = booking.status !== "Cancelled";
       const differentBooking = booking.bookingId !== state.currentBookingId;
+
       return sameDate && sameTime && sameVenue && active && differentBooking;
     });
 
     const isDisabled = !!bookingForThisSlot;
     const isSelected = state.selectedSlot === time;
 
-    if (isSelected) btn.classList.add("selected");
-    if (isDisabled && !isSelected) {
-      btn.classList.add("disabled");
+    let className =
+      "w-full rounded-2xl border p-4 text-left transition min-h-[92px] ";
+
+    if (isSelected) {
+      className += "bg-slate-900 text-white border-slate-900 shadow-md";
+    } else if (isDisabled) {
+      className += "bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed";
       btn.disabled = true;
+    } else {
+      className += "bg-white text-slate-900 border-slate-200 hover:border-slate-300 hover:shadow-sm hover:-translate-y-[1px]";
     }
 
+    btn.className = className;
+
     btn.innerHTML = `
-      <span class="slot-time">${time}</span>
-      <span class="slot-sub">${
-        bookingForThisSlot
-          ? `Booked by ${escapeHtml(bookingForThisSlot.name)}`
-          : "Available"
-      }</span>
+      <div class="flex items-start justify-between gap-3">
+        <div>
+          <div class="text-base font-extrabold">${time}</div>
+          <div class="mt-1 text-xs sm:text-sm ${isSelected ? "text-slate-200" : isDisabled ? "text-slate-400" : "text-slate-500"}">
+            ${bookingForThisSlot ? `Booked by ${escapeHtml(bookingForThisSlot.name)}` : "Available"}
+          </div>
+        </div>
+        <div class="shrink-0">
+          <span class="inline-flex rounded-full px-2.5 py-1 text-[11px] font-bold ${
+            isSelected
+              ? "bg-slate-700 text-white"
+              : isDisabled
+              ? "bg-slate-200 text-slate-500"
+              : "bg-emerald-50 text-emerald-700"
+          }">
+            ${isDisabled ? "Booked" : "Open"}
+          </span>
+        </div>
+      </div>
     `;
 
     btn.addEventListener("click", () => {
@@ -278,81 +381,94 @@ function renderSlots() {
       updateSummary();
       hideConfirmation();
       clearError();
+      renderSlots();
     });
 
     slotsContainer.appendChild(btn);
   });
 }
 
-function getStatusBadge(status) {
-  const value = String(status || "").toLowerCase();
-
-  if (value === "confirmed") {
-    return `<span class="status-badge status-confirmed">Confirmed</span>`;
-  }
-  if (value === "updated") {
-    return `<span class="status-badge status-updated">Updated</span>`;
-  }
-  if (value === "cancelled") {
-    return `<span class="status-badge status-cancelled">Cancelled</span>`;
-  }
-
-  return `<span class="status-badge">${escapeHtml(status || "-")}</span>`;
-}
-
 function renderBookingsTable() {
   try {
-    let bookings = [...state.allBookings];
-    const bookingsDateFilter = document.getElementById("bookingsDateFilter");
+    if (!bookingsTableBody) {
+      setStatus("Bookings table body not found in HTML.", "error");
+      return;
+    }
+
+    let bookings = Array.isArray(state.allBookings) ? [...state.allBookings] : [];
     const selectedFilterDate = bookingsDateFilter ? bookingsDateFilter.value : "";
 
     if (selectedFilterDate) {
       bookings = bookings.filter((booking) => booking.bookingDate === selectedFilterDate);
-      selectedDateLabel.textContent = `Showing bookings for ${selectedFilterDate}.`;
+      if (selectedDateLabel) {
+        selectedDateLabel.textContent = `Showing bookings for ${formatIsoDateToDisplay(selectedFilterDate)}.`;
+      }
+    } else if (state.filterBySelectedDate && state.selectedDate) {
+      const selectedIsoDate = getIsoDate(state.selectedDate);
+      bookings = bookings.filter((booking) => booking.bookingDate === selectedIsoDate);
+      if (selectedDateLabel) {
+        selectedDateLabel.textContent = `Showing bookings for ${formatDisplayDate(state.selectedDate)}.`;
+      }
     } else {
-      selectedDateLabel.textContent = "Showing all bookings. Select a date to filter.";
+      if (selectedDateLabel) {
+        selectedDateLabel.textContent = "Showing all bookings. Select a date to filter.";
+      }
     }
+
+    bookings.sort((a, b) => {
+      const aKey = `${a.bookingDate || ""} ${normalizeTimeString(a.bookingTime || "")}`;
+      const bKey = `${b.bookingDate || ""} ${normalizeTimeString(b.bookingTime || "")}`;
+      return aKey.localeCompare(bKey);
+    });
 
     if (!bookings.length) {
       bookingsTableBody.innerHTML = `
         <tr>
-          <td colspan="12" class="empty-cell">No bookings found.</td>
+          <td colspan="12" class="px-4 py-8 text-center text-sm text-slate-500">
+            No bookings found.
+          </td>
         </tr>
       `;
       return;
     }
 
     bookingsTableBody.innerHTML = bookings.map((booking) => `
-      <tr>
-        <td>${escapeHtml(booking.bookingId || "-")}</td>
-        <td>${escapeHtml(booking.status || "-")}</td>
-        <td>${escapeHtml(booking.bookingDate || "-")}</td>
-        <td>${escapeHtml(booking.bookingTime || "-")}</td>
-        <td>${escapeHtml(booking.name || "-")}</td>
-        <td>${escapeHtml(booking.rank || "-")}</td>
-        <td>${escapeHtml(booking.unit || "-")}</td>
-        <td>${escapeHtml(booking.email || "-")}</td>
-        <td>${escapeHtml(booking.contact || "-")}</td>
-        <td>${escapeHtml(booking.eventName || "-")}</td>
-        <td>${escapeHtml(booking.venue || "-")}</td>
-        <td>
-          <button class="table-load-btn" type="button" data-booking-id="${escapeHtml(booking.bookingId || "")}">
+      <tr class="border-b border-slate-100">
+        <td class="px-4 py-3">${escapeHtml(booking.bookingId || "-")}</td>
+        <td class="px-4 py-3">${getStatusBadge(booking.status)}</td>
+        <td class="px-4 py-3">${escapeHtml(formatIsoDateToDisplay(booking.bookingDate || ""))}</td>
+        <td class="px-4 py-3">${escapeHtml(normalizeTimeString(booking.bookingTime || ""))}</td>
+        <td class="px-4 py-3">${escapeHtml(booking.name || "-")}</td>
+        <td class="px-4 py-3">${escapeHtml(booking.rank || "-")}</td>
+        <td class="px-4 py-3">${escapeHtml(booking.unit || "-")}</td>
+        <td class="px-4 py-3">${escapeHtml(booking.email || "-")}</td>
+        <td class="px-4 py-3">${escapeHtml(booking.contact || "-")}</td>
+        <td class="px-4 py-3">${escapeHtml(booking.eventName || "-")}</td>
+        <td class="px-4 py-3">${escapeHtml(booking.venue || "-")}</td>
+        <td class="px-4 py-3">
+          <button
+            class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs font-bold text-slate-800 transition hover:bg-slate-50"
+            type="button"
+            data-booking-id="${escapeHtml(booking.bookingId || "")}"
+          >
             Load
           </button>
         </td>
       </tr>
     `).join("");
 
-    document.querySelectorAll(".table-load-btn").forEach((button) => {
+    document.querySelectorAll("[data-booking-id]").forEach((button) => {
       button.addEventListener("click", () => {
         const bookingId = button.getAttribute("data-booking-id");
         const booking = state.allBookings.find((item) => item.bookingId === bookingId);
-        if (booking) loadBookingIntoForm(booking);
+        if (booking) {
+          loadBookingIntoForm(booking);
+        }
       });
     });
   } catch (error) {
     console.error("renderBookingsTable failed:", error);
-    setStatus("Failed while rendering bookings table.", "error");
+    setStatus(`Failed while rendering bookings table: ${error.message}`, "error");
   }
 }
 
@@ -378,8 +494,12 @@ function loadBookingIntoForm(booking) {
     yearSelect.value = state.currentYear;
   }
 
-  state.selectedSlot = booking.bookingTime || null;
+  state.selectedSlot = normalizeTimeString(booking.bookingTime) || null;
   state.filterBySelectedDate = true;
+
+  if (bookingsDateFilter) {
+    bookingsDateFilter.value = "";
+  }
 
   submitBtn.textContent = booking.status === "Cancelled" ? "Submit Booking" : "Save Changes";
 
@@ -399,7 +519,7 @@ function hideConfirmation() {
 }
 
 function showConfirmation() {
-  confirmDateTime.textContent = `${formatDate(state.selectedDate)} • ${state.selectedSlot}`;
+  confirmDateTime.textContent = `${formatDisplayDate(state.selectedDate)} • ${state.selectedSlot}`;
   confirmBookingId.textContent = `Booking ID: ${state.currentBookingId || "-"}`;
   confirmationBox.classList.remove("hidden");
   footerActions.classList.remove("hidden");
@@ -436,27 +556,18 @@ function getFormPayload() {
 
 async function loadAllBookings() {
   try {
-    setStatus("Loading bookings...", "info");
-
     const data = await apiRequest({
       action: "listBookings",
       venue: CONFIG.venue
     });
-
-    console.log("loadAllBookings response:", data);
 
     if (!data.success) {
       throw new Error(data.message || "Failed to load bookings.");
     }
 
     state.allBookings = Array.isArray(data.bookings) ? data.bookings : [];
-
-    console.log("state.allBookings:", state.allBookings);
-
     renderSlots();
     renderBookingsTable();
-
-    clearStatus();
   } catch (error) {
     console.error("loadAllBookings failed:", error);
     setStatus(error.message || "Failed to load bookings.", "error");
@@ -575,6 +686,11 @@ document.getElementById("todayBtn").addEventListener("click", () => {
   state.selectedDate = new Date(today.getFullYear(), today.getMonth(), today.getDate());
   state.selectedSlot = null;
   state.filterBySelectedDate = true;
+
+  if (bookingsDateFilter) {
+    bookingsDateFilter.value = "";
+  }
+
   monthSelect.value = state.currentMonth;
   yearSelect.value = state.currentYear;
   renderCalendar();
@@ -610,25 +726,38 @@ document.getElementById("changeBookingBtn").addEventListener("click", () => {
 
 document.getElementById("cancelBookingBtn").addEventListener("click", cancelBooking);
 document.getElementById("findBookingBtn").addEventListener("click", findBooking);
-
-document.getElementById("refreshBookingsBtn").addEventListener("click", async () => {
-  try {
-    setStatus("Refreshing bookings...", "info");
-    await loadAllBookings();
-    clearStatus();
-  } catch (error) {
-    setStatus(error.message || "Failed to refresh bookings.", "error");
-  }
-});
-
-document.getElementById("clearDateFilterBtn").addEventListener("click", () => {
-  state.filterBySelectedDate = false;
-  renderBookingsTable();
-});
-
 document.getElementById("backBtn").addEventListener("click", () => {
   window.history.back();
 });
+
+if (bookingsDateFilter) {
+  bookingsDateFilter.addEventListener("change", () => {
+    state.filterBySelectedDate = false;
+    renderBookingsTable();
+  });
+}
+
+if (refreshBookingsBtn) {
+  refreshBookingsBtn.addEventListener("click", async () => {
+    try {
+      setStatus("Refreshing bookings...", "info");
+      await loadAllBookings();
+      clearStatus();
+    } catch (error) {
+      setStatus(error.message || "Failed to refresh bookings.", "error");
+    }
+  });
+}
+
+if (clearDateFilterBtn) {
+  clearDateFilterBtn.addEventListener("click", () => {
+    if (bookingsDateFilter) {
+      bookingsDateFilter.value = "";
+    }
+    state.filterBySelectedDate = false;
+    renderBookingsTable();
+  });
+}
 
 form.addEventListener("submit", async (e) => {
   e.preventDefault();
@@ -649,24 +778,26 @@ form.addEventListener("submit", async (e) => {
 
     const conflict = state.allBookings.find((booking) => {
       const sameDate = booking.bookingDate === selectedDateIso;
-      const sameTime = booking.bookingTime === state.selectedSlot;
+      const sameTime = normalizeTimeString(booking.bookingTime) === state.selectedSlot;
       const sameVenue = booking.venue === CONFIG.venue;
       const active = booking.status !== "Cancelled";
       const differentBooking = booking.bookingId !== state.currentBookingId;
+
       return sameDate && sameTime && sameVenue && active && differentBooking;
     });
 
     if (conflict) {
-      throw new Error(`This slot is already booked by ${conflict.name}. Please choose another slot.`);
+      throw new Error(
+        `This slot is already booked by ${conflict.name}. It can only be booked again if that booking is cancelled.`
+      );
     }
 
-    const data = state.currentBookingId ? await updateBooking() : await createBooking();
+    const wasEditing = !!state.currentBookingId;
+    const data = wasEditing ? await updateBooking() : await createBooking();
 
     if (!data.success) {
       throw new Error(data.message || "Something went wrong.");
     }
-
-    const wasEditing = !!state.currentBookingId;
 
     state.currentBookingId = data.bookingId || state.currentBookingId;
     state.currentStatus = wasEditing ? "Updated" : "Confirmed";
