@@ -1,59 +1,87 @@
-# PLC Football Field Booking
+# PLC Football Field Booking System
 
-Built with:
+A simple booking system for the **PLC Football Field** built with:
 
-- **HTML**
-- **CSS**
-- **Vanilla JavaScript**
-- **Google Sheets + Google Apps Script** as the backend
-- ready to deploy as a **static site on Vercel**
+- **Frontend:** HTML + Tailwind CSS + JavaScript
+- **Backend:** Google Apps Script
+- **Database:** Google Sheets
+- **Email:** MailApp via Google Apps Script
 
 This project lets users:
 
-- select a date from a calendar
-- choose a time slot
-- enter booking details
-- submit a booking to Google Sheets
-- change an existing booking
-- cancel an existing booking
-- automatically block slots that are already booked
+- view available booking slots
+- create a booking
+- update an existing booking
+- cancel a booking
+- prevent double booking
+- view all bookings for a selected day
+- contact a booking holder by email from the booking table
 
 ---
 
 ## Features
 
-### Frontend
-- clean single-page booking flow
-- calendar-based date selection
-- selectable 2-hour time slots
-- booking form with:
-  - Email
-  - Rank
-  - Name
-  - Unit
-  - Event Name
-  - Contact Number
-- live booking summary
-- confirmation panel after successful booking
+### Booking workflow
+- Calendar-based date selection
+- 24-hour time slots
+- Booking summary panel
+- Booking confirmation display
+- Existing booking lookup by **Booking ID + Email**
+- Edit and cancel booking support
 
-### Backend
-- stores bookings in **Google Sheets**
-- generates a unique **Booking ID**
-- supports:
-  - **Create booking**
-  - **Update booking**
-  - **Cancel booking**
-  - **Get unavailable slots**
-- prevents double booking of the same date + time slot
+### Validation
+- No double booking for the same:
+  - venue
+  - date
+  - time
+- Cancelled bookings free up the slot again
+- Same person cannot keep duplicate active bookings at the same date/time
+- Email format validation
+- Backend locking with `LockService` to reduce race conditions
+
+### Booking data
+Each booking stores:
+
+- Booking ID
+- Rank & Name
+- Unit
+- Contact Number
+- Email
+- Event Name
+- Venue
+- Booking Date
+- Booking Time
+- Duration
+- Status
+
+### Booking ID format
+Booking IDs are sequential:
+
+- `BK0001`
+- `BK0002`
+- `BK0003`
+
+### All Bookings table
+The All Bookings section shows:
+
+- Status
+- Date
+- Time
+- Rank & Name
+- Unit
+- Contact
+- Event
+- Venue
+- Contact button
+
+The **Contact** button opens the user's email client using `mailto:`.
 
 ---
 
 ## Project Structure
 
-```bash
-project/
+```text
+project-folder/
 ├── index.html
-├── style.css
 ├── script.js
-├── Code.gs
-└── appsscript.jsonCourt
+└── README.md
