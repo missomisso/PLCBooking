@@ -166,7 +166,7 @@ function renderMainBookingsTable() {
   }
 
   if (venueFilter) {
-    bookings = bookings.filter((booking) => booking.venue === venueFilter);
+    bookings = bookings.filter((booking) => (booking.venue || "").includes(venueFilter));
   }
 
   if (searchTerm) {

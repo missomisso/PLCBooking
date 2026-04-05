@@ -75,12 +75,14 @@ const summary = {
 function applyVenueToPage() {
   const pageNames = {
     "PLC Football Field": "Football Field",
-    "PLC Basketball Court": "Basketball Court"
+    "PLC Basketball Court": "Basketball Court",
+    "PLC Football Field, PLC Basketball Court": "Both Venues"
   };
 
   const venueBadges = {
     "PLC Football Field": "⚽ Football",
-    "PLC Basketball Court": "🏀 Basketball"
+    "PLC Basketball Court": "🏀 Basketball",
+    "PLC Football Field, PLC Basketball Court": "⚽🏀 Both"
   };
 
   const shortName = pageNames[CONFIG.venue] || CONFIG.venue;
@@ -312,7 +314,11 @@ function renderSlots() {
     const bookingForThisSlot = state.allBookings.find((booking) => {
       const sameDate = state.selectedDate && booking.bookingDate === getIsoDate(state.selectedDate);
       const sameTime = normalizeTimeString(booking.bookingTime) === time;
-      const sameVenue = booking.venue === CONFIG.venue;
+      
+      const configVenues = CONFIG.venue.split(",").map(v => v.trim());
+      const bookingVenues = (booking.venue || "").split(",").map(v => v.trim());
+      const sameVenue = configVenues.some(cv => bookingVenues.includes(cv));
+
       const active = booking.status !== "Cancelled";
       const differentBooking = booking.bookingId !== state.currentBookingId;
 
@@ -660,7 +666,11 @@ if (form) {
       const conflict = state.allBookings.find((booking) => {
         const sameDate = booking.bookingDate === selectedDateIso;
         const sameTime = normalizeTimeString(booking.bookingTime) === state.selectedSlot;
-        const sameVenue = booking.venue === CONFIG.venue;
+        
+        const configVenues = CONFIG.venue.split(",").map(v => v.trim());
+        const bookingVenues = (booking.venue || "").split(",").map(v => v.trim());
+        const sameVenue = configVenues.some(cv => bookingVenues.includes(cv));
+
         const active = booking.status !== "Cancelled";
         const differentBooking = booking.bookingId !== state.currentBookingId;
 
