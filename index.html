@@ -131,34 +131,335 @@
       <div id="mainStatusText" class="hidden mb-4 rounded-2xl bg-blue-50 px-4 py-3 text-sm font-medium text-blue-700">
       </div>
 
-      <div class="overflow-auto rounded-2xl border border-slate-200">
-        <table class="min-w-[900px] w-full border-collapse">
-          <thead class="bg-slate-50">
-            <tr class="text-left text-[11px] uppercase tracking-wide text-slate-500">
-              <th class="px-4 py-3">Status</th>
-              <th class="px-4 py-3">Date</th>
-              <th class="px-4 py-3">Time</th>
-              <th class="px-4 py-3">Rank &amp; Name</th>
-              <th class="px-4 py-3">Unit</th>
-              <th class="px-4 py-3">Contact</th>
-              <th class="px-4 py-3">Event</th>
-              <th class="px-4 py-3">Venue</th>
-              <th class="px-4 py-3">Action</th>
-            </tr>
-          </thead>
-          <tbody id="mainBookingsTableBody">
-            <tr>
-              <td colspan="9" class="px-4 py-8 text-center text-sm text-slate-500">
-                Loading bookings...
-              </td>
-            </tr>
-          </tbody>
-        </table>
+      <div class="rounded-3xl border border-slate-200 bg-slate-50 p-4 sm:p-5">
+        <div class="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <button id="mainPrevMonthBtn" type="button"
+            class="rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-semibold hover:bg-slate-100">
+            ← Previous
+          </button>
+
+          <div class="text-center">
+            <h2 id="mainCalendarMonthLabel" class="text-xl font-extrabold tracking-tight text-slate-900">
+              Calendar
+            </h2>
+            <p id="mainCalendarSummary" class="mt-1 text-xs font-medium text-slate-500">
+              Loading bookings...
+            </p>
+          </div>
+
+          <button id="mainNextMonthBtn" type="button"
+            class="rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-semibold hover:bg-slate-100">
+            Next →
+          </button>
+        </div>
+
+        <div class="hidden grid-cols-7 gap-2 text-center text-[11px] font-bold uppercase tracking-wide text-slate-500 sm:grid">
+          <div>Mon</div>
+          <div>Tue</div>
+          <div>Wed</div>
+          <div>Thu</div>
+          <div>Fri</div>
+          <div>Sat</div>
+          <div>Sun</div>
+        </div>
+
+        <div id="mainCalendarGrid" class="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-7">
+          <div class="rounded-2xl bg-white p-6 text-center text-sm text-slate-500 sm:col-span-7">
+            Loading calendar...
+          </div>
+        </div>
+
+        <div id="mainCalendarDayDetails"
+          class="mt-5 rounded-2xl border border-slate-200 bg-white p-4 text-sm text-slate-600">
+          Select a date to view bookings.
+        </div>
       </div>
+
+      <details class="mt-6 rounded-2xl border border-slate-200 bg-white">
+        <summary class="cursor-pointer px-4 py-3 text-sm font-bold text-slate-700 hover:bg-slate-50">
+          Show original table view / actions
+        </summary>
+
+        <div class="overflow-auto border-t border-slate-200">
+          <table class="min-w-[900px] w-full border-collapse">
+            <thead class="bg-slate-50">
+              <tr class="text-left text-[11px] uppercase tracking-wide text-slate-500">
+                <th class="px-4 py-3">Status</th>
+                <th class="px-4 py-3">Date</th>
+                <th class="px-4 py-3">Time</th>
+                <th class="px-4 py-3">Rank &amp; Name</th>
+                <th class="px-4 py-3">Unit</th>
+                <th class="px-4 py-3">Contact</th>
+                <th class="px-4 py-3">Event</th>
+                <th class="px-4 py-3">Venue</th>
+                <th class="px-4 py-3">Action</th>
+              </tr>
+            </thead>
+            <tbody id="mainBookingsTableBody">
+              <tr>
+                <td colspan="9" class="px-4 py-8 text-center text-sm text-slate-500">
+                  Loading bookings...
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </details>
     </section>
   </main>
 
   <script src="./main.js"></script>
+
+  <script>
+    // Calendar display adapter.
+    // This keeps your existing Google Sheet/main.js data flow and reads the rows that main.js already renders.
+    (() => {
+      const tableBody = document.getElementById("mainBookingsTableBody");
+      const calendarGrid = document.getElementById("mainCalendarGrid");
+      const monthLabel = document.getElementById("mainCalendarMonthLabel");
+      const summary = document.getElementById("mainCalendarSummary");
+      const details = document.getElementById("mainCalendarDayDetails");
+      const prevBtn = document.getElementById("mainPrevMonthBtn");
+      const nextBtn = document.getElementById("mainNextMonthBtn");
+
+      if (!tableBody || !calendarGrid || !monthLabel || !summary || !details) return;
+
+      let visibleMonth = new Date();
+      let selectedDateKey = null;
+
+      const pad = (value) => String(value).padStart(2, "0");
+
+      const toDateKey = (value) => {
+        const raw = String(value || "").trim();
+        if (!raw) return "";
+
+        // Supports YYYY-MM-DD or YYYY/MM/DD.
+        let match = raw.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})/);
+        if (match) return `${match[1]}-${pad(match[2])}-${pad(match[3])}`;
+
+        // Supports DD/MM/YYYY or DD-MM-YYYY.
+        match = raw.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})/);
+        if (match) return `${match[3]}-${pad(match[2])}-${pad(match[1])}`;
+
+        const parsed = new Date(raw);
+        if (!Number.isNaN(parsed.getTime())) {
+          return `${parsed.getFullYear()}-${pad(parsed.getMonth() + 1)}-${pad(parsed.getDate())}`;
+        }
+
+        return "";
+      };
+
+      const fromDateKey = (dateKey) => new Date(`${dateKey}T00:00:00`);
+
+      const formatDate = (dateKey, options = {}) => {
+        const date = fromDateKey(dateKey);
+        return date.toLocaleDateString("en-SG", {
+          weekday: options.weekday || undefined,
+          day: "numeric",
+          month: "short",
+          year: "numeric"
+        });
+      };
+
+      const getBookingsFromRenderedTable = () => {
+        return Array.from(tableBody.querySelectorAll("tr"))
+          .map((row) => {
+            const cells = Array.from(row.children);
+            if (cells.length < 8 || cells[0]?.colSpan > 1) return null;
+
+            const dateKey = toDateKey(cells[1]?.textContent);
+            if (!dateKey) return null;
+
+            return {
+              status: cells[0]?.textContent.trim() || "",
+              date: cells[1]?.textContent.trim() || "",
+              dateKey,
+              time: cells[2]?.textContent.trim() || "",
+              name: cells[3]?.textContent.trim() || "",
+              unit: cells[4]?.textContent.trim() || "",
+              contact: cells[5]?.textContent.trim() || "",
+              event: cells[6]?.textContent.trim() || "",
+              venue: cells[7]?.textContent.trim() || ""
+            };
+          })
+          .filter(Boolean);
+      };
+
+      const groupByDate = (bookings) => {
+        return bookings.reduce((grouped, booking) => {
+          grouped[booking.dateKey] ||= [];
+          grouped[booking.dateKey].push(booking);
+          return grouped;
+        }, {});
+      };
+
+      const statusClass = (status) => {
+        const lower = status.toLowerCase();
+
+        if (lower.includes("cancel")) {
+          return "bg-rose-50 text-rose-700 border-rose-100";
+        }
+
+        if (lower.includes("update")) {
+          return "bg-amber-50 text-amber-700 border-amber-100";
+        }
+
+        return "bg-emerald-50 text-emerald-700 border-emerald-100";
+      };
+
+      const renderDayDetails = (dateKey, bookings) => {
+        if (!dateKey) {
+          details.innerHTML = "Select a date to view bookings.";
+          return;
+        }
+
+        if (!bookings.length) {
+          details.innerHTML = `
+            <div class="font-bold text-slate-900">${formatDate(dateKey, { weekday: "long" })}</div>
+            <div class="mt-2 text-slate-500">No bookings found for this date.</div>
+          `;
+          return;
+        }
+
+        details.innerHTML = `
+          <div class="mb-3 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <div class="font-bold text-slate-900">${formatDate(dateKey, { weekday: "long" })}</div>
+              <div class="text-xs text-slate-500">${bookings.length} booking${bookings.length === 1 ? "" : "s"}</div>
+            </div>
+            <div class="text-xs font-medium text-slate-500">Use the table below if you need edit/cancel actions.</div>
+          </div>
+
+          <div class="grid gap-3">
+            ${bookings.map((booking) => `
+              <div class="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                <div class="mb-2 flex flex-wrap items-center gap-2">
+                  <span class="rounded-full border px-2.5 py-1 text-[11px] font-bold ${statusClass(booking.status)}">
+                    ${booking.status || "Booking"}
+                  </span>
+                  <span class="text-sm font-extrabold text-slate-900">${booking.time || "Time not set"}</span>
+                </div>
+                <div class="font-bold text-slate-900">${booking.event || "Untitled Event"}</div>
+                <div class="mt-1 text-xs text-slate-500">${booking.venue || "Venue not set"}</div>
+                <div class="mt-3 grid gap-1 text-xs text-slate-600 sm:grid-cols-3">
+                  <div><span class="font-bold">Name:</span> ${booking.name || "-"}</div>
+                  <div><span class="font-bold">Unit:</span> ${booking.unit || "-"}</div>
+                  <div><span class="font-bold">Contact:</span> ${booking.contact || "-"}</div>
+                </div>
+              </div>
+            `).join("")}
+          </div>
+        `;
+      };
+
+      const renderCalendar = () => {
+        const bookings = getBookingsFromRenderedTable();
+        const grouped = groupByDate(bookings);
+
+        const year = visibleMonth.getFullYear();
+        const month = visibleMonth.getMonth();
+        const firstDay = new Date(year, month, 1);
+        const lastDay = new Date(year, month + 1, 0);
+        const todayKey = toDateKey(new Date());
+
+        monthLabel.textContent = visibleMonth.toLocaleDateString("en-SG", {
+          month: "long",
+          year: "numeric"
+        });
+
+        const bookingsThisMonth = bookings.filter((booking) => {
+          const date = fromDateKey(booking.dateKey);
+          return date.getFullYear() === year && date.getMonth() === month;
+        });
+
+        summary.textContent = `${bookingsThisMonth.length} booking${bookingsThisMonth.length === 1 ? "" : "s"} shown for this month`;
+
+        calendarGrid.innerHTML = "";
+
+        let startOffset = firstDay.getDay();
+        startOffset = startOffset === 0 ? 6 : startOffset - 1; // Monday-first calendar.
+
+        for (let i = 0; i < startOffset; i++) {
+          const spacer = document.createElement("div");
+          spacer.className = "hidden rounded-2xl sm:block";
+          calendarGrid.appendChild(spacer);
+        }
+
+        for (let day = 1; day <= lastDay.getDate(); day++) {
+          const dateKey = `${year}-${pad(month + 1)}-${pad(day)}`;
+          const dayBookings = grouped[dateKey] || [];
+          const confirmedCount = dayBookings.filter((booking) =>
+            booking.status.toLowerCase().includes("confirm")
+          ).length;
+          const cancelledCount = dayBookings.filter((booking) =>
+            booking.status.toLowerCase().includes("cancel")
+          ).length;
+
+          const cell = document.createElement("button");
+          cell.type = "button";
+
+          const isSelected = selectedDateKey === dateKey;
+          const isToday = todayKey === dateKey;
+
+          cell.className = [
+            "min-h-[112px] rounded-2xl border bg-white p-3 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md",
+            dayBookings.length ? "border-slate-300" : "border-slate-200",
+            isSelected ? "ring-2 ring-slate-900" : "",
+            isToday ? "bg-blue-50" : ""
+          ].join(" ");
+
+          cell.innerHTML = `
+            <div class="flex items-start justify-between gap-2">
+              <div class="text-lg font-extrabold text-slate-900">${day}</div>
+              ${isToday ? `<span class="rounded-full bg-blue-600 px-2 py-0.5 text-[10px] font-bold text-white">Today</span>` : ""}
+            </div>
+
+            <div class="mt-3">
+              ${
+                dayBookings.length
+                  ? `<div class="text-sm font-bold text-slate-900">${dayBookings.length} booking${dayBookings.length === 1 ? "" : "s"}</div>
+                     <div class="mt-1 text-xs text-slate-500">${confirmedCount} confirmed${cancelledCount ? ` · ${cancelledCount} cancelled` : ""}</div>`
+                  : `<div class="text-sm font-medium text-slate-400">No bookings</div>`
+              }
+            </div>
+          `;
+
+          cell.addEventListener("click", () => {
+            selectedDateKey = dateKey;
+            renderCalendar();
+            renderDayDetails(dateKey, dayBookings);
+          });
+
+          calendarGrid.appendChild(cell);
+        }
+
+        if (selectedDateKey) {
+          renderDayDetails(selectedDateKey, grouped[selectedDateKey] || []);
+        } else {
+          renderDayDetails(null, []);
+        }
+      };
+
+      prevBtn?.addEventListener("click", () => {
+        visibleMonth = new Date(visibleMonth.getFullYear(), visibleMonth.getMonth() - 1, 1);
+        selectedDateKey = null;
+        renderCalendar();
+      });
+
+      nextBtn?.addEventListener("click", () => {
+        visibleMonth = new Date(visibleMonth.getFullYear(), visibleMonth.getMonth() + 1, 1);
+        selectedDateKey = null;
+        renderCalendar();
+      });
+
+      const observer = new MutationObserver(renderCalendar);
+      observer.observe(tableBody, { childList: true, subtree: true });
+
+      document.addEventListener("DOMContentLoaded", renderCalendar);
+      renderCalendar();
+    })();
+  </script>
+
 </body>
 
 </html>
