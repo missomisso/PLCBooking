@@ -84,56 +84,24 @@
     <section class="mx-auto mt-8 w-full max-w-5xl rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:p-7">
       <div class="mb-6 text-center">
         <p class="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">
-          All Bookings
+          Booking Calendar
         </p>
-        <p id="mainSelectedDateLabel" class="mt-2 text-sm text-slate-500">
-          Showing all bookings. Filter by date, venue, search term, or status.
+        <p class="mt-2 text-sm text-slate-500">
+          Browse bookings by date.
         </p>
       </div>
 
-      <div class="mb-5 flex flex-col items-center gap-3">
-        <div class="grid w-full max-w-4xl grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
-          <input type="date" id="mainBookingsDateFilter"
-            class="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm" />
-
-          <select id="mainVenueFilter" class="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm">
-            <option value="">All Venues</option>
-            <option value="PLC Football Field">Football Field</option>
-            <option value="PLC Basketball Court">Basketball Court</option>
-            <option value="PLC Football Field, PLC Basketball Court">Both Venues</option>
-          </select>
-
-          <input type="text" id="mainBookingsSearchInput" placeholder="Search name, unit, event..."
-            class="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm" />
-
-          <select id="mainBookingsStatusFilter"
-            class="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm">
-            <option value="">All Statuses</option>
-            <option value="Confirmed">Confirmed</option>
-            <option value="Updated">Updated</option>
-            <option value="Cancelled">Cancelled</option>
-          </select>
-        </div>
-
-        <div class="flex flex-wrap items-center justify-center gap-3">
-          <button id="mainRefreshBookingsBtn" type="button"
-            class="rounded-xl border border-slate-300 bg-white px-5 py-3 text-sm font-semibold hover:bg-slate-50">
-            Refresh
-          </button>
-
-          <button id="mainClearFiltersBtn" type="button"
-            class="rounded-xl border border-slate-300 bg-white px-5 py-3 text-sm font-semibold hover:bg-slate-50">
-            Clear Filters
-          </button>
-        </div>
+      <div class="mb-5 flex flex-wrap items-center justify-center gap-3">
+        <button id="mainRefreshBookingsBtn" type="button"
+          class="rounded-xl border border-slate-300 bg-white px-5 py-3 text-sm font-semibold hover:bg-slate-50">
+          Refresh
+        </button>
       </div>
 
       <div id="mainStatusText" class="hidden mb-4 rounded-2xl bg-blue-50 px-4 py-3 text-sm font-medium text-blue-700">
       </div>
 
-
-      <!-- Calendar view: added above the original table without changing the old table structure. -->
-      <div class="mb-6 rounded-3xl border border-slate-200 bg-slate-50 p-4 sm:p-5">
+      <div class="rounded-3xl border border-slate-200 bg-slate-50 p-4 sm:p-5">
         <div class="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <button id="mainPrevMonthBtn" type="button"
             class="rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-semibold hover:bg-slate-100">
@@ -176,41 +144,15 @@
           Select a date to view bookings.
         </div>
       </div>
-
-      <div class="overflow-auto rounded-2xl border border-slate-200">
-        <table class="min-w-[900px] w-full border-collapse">
-          <thead class="bg-slate-50">
-            <tr class="text-left text-[11px] uppercase tracking-wide text-slate-500">
-              <th class="px-4 py-3">Status</th>
-              <th class="px-4 py-3">Date</th>
-              <th class="px-4 py-3">Time</th>
-              <th class="px-4 py-3">Rank &amp; Name</th>
-              <th class="px-4 py-3">Unit</th>
-              <th class="px-4 py-3">Contact</th>
-              <th class="px-4 py-3">Event</th>
-              <th class="px-4 py-3">Venue</th>
-              <th class="px-4 py-3">Action</th>
-            </tr>
-          </thead>
-          <tbody id="mainBookingsTableBody">
-            <tr>
-              <td colspan="9" class="px-4 py-8 text-center text-sm text-slate-500">
-                Loading bookings...
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
     </section>
   </main>
 
   <script src="./main.js"></script>
 
   <script>
-    // Calendar adapter: reads the existing table that main.js already fills from Google Sheet.
-    // The original table stays untouched so your old page logic keeps working.
+    // Renders the calendar from mainAllBookings (main.js). main.js calls
+    // window.refreshBookingCalendar() whenever it fetches new data.
     (() => {
-      const tableBody = document.getElementById("mainBookingsTableBody");
       const calendarGrid = document.getElementById("mainCalendarGrid");
       const monthLabel = document.getElementById("mainCalendarMonthLabel");
       const summary = document.getElementById("mainCalendarSummary");
@@ -218,7 +160,7 @@
       const prevBtn = document.getElementById("mainPrevMonthBtn");
       const nextBtn = document.getElementById("mainNextMonthBtn");
 
-      if (!tableBody || !calendarGrid || !monthLabel || !summary || !details) return;
+      if (!calendarGrid || !monthLabel || !summary || !details) return;
 
       let visibleMonth = new Date();
       let selectedDateKey = "";
@@ -259,11 +201,7 @@
         });
       };
 
-      const getBookingsFromRenderedTable = () => {
-        // Reads the raw booking data (main.js) instead of the rendered table text:
-        // the table displays dates without a year (e.g. "Friday, 13 March"), and
-        // re-parsing that with `new Date(...)` silently defaults to year 2001,
-        // which meant bookings never matched any real calendar month.
+      const getBookings = () => {
         const source = typeof mainAllBookings !== "undefined" && Array.isArray(mainAllBookings)
           ? mainAllBookings
           : [];
@@ -323,7 +261,7 @@
               <div class="font-bold text-slate-900">${formatDate(dateKey, true)}</div>
               <div class="text-xs text-slate-500">${bookings.length} booking${bookings.length === 1 ? "" : "s"}</div>
             </div>
-            <div class="text-xs font-medium text-slate-500">Edit/cancel actions remain in the original table below.</div>
+            <div class="text-xs font-medium text-slate-500">To edit or cancel a booking, use "Find Booking" on the venue page.</div>
           </div>
 
           <div class="grid gap-3">
@@ -349,7 +287,7 @@
       };
 
       const renderCalendarNow = () => {
-        const bookings = getBookingsFromRenderedTable();
+        const bookings = getBookings();
         const grouped = groupByDate(bookings);
 
         const year = visibleMonth.getFullYear();
@@ -371,7 +309,7 @@
 
         summary.textContent = bookings.length
           ? `${bookingsThisMonth.length} booking${bookingsThisMonth.length === 1 ? "" : "s"} shown for this month`
-          : "No bookings found in the table yet";
+          : "No bookings found yet";
 
         calendarGrid.innerHTML = "";
 
@@ -445,7 +383,7 @@
         renderCalendarNow();
       });
 
-      new MutationObserver(scheduleRender).observe(tableBody, { childList: true, subtree: true, characterData: true });
+      window.refreshBookingCalendar = renderCalendarNow;
       document.addEventListener("DOMContentLoaded", scheduleRender);
       scheduleRender();
     })();

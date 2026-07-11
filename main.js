@@ -1,13 +1,6 @@
 const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbx_2GQ8a61wjyxO_17vbz423n8FBbevmWowphtvxlpA9P3ct1RNE8tbwvdXw4qvPBqPNg/exec";
 
-const mainBookingsTableBody = document.getElementById("mainBookingsTableBody");
-const mainSelectedDateLabel = document.getElementById("mainSelectedDateLabel");
-const mainBookingsDateFilter = document.getElementById("mainBookingsDateFilter");
-const mainVenueFilter = document.getElementById("mainVenueFilter");
-const mainBookingsSearchInput = document.getElementById("mainBookingsSearchInput");
-const mainBookingsStatusFilter = document.getElementById("mainBookingsStatusFilter");
 const mainRefreshBookingsBtn = document.getElementById("mainRefreshBookingsBtn");
-const mainClearFiltersBtn = document.getElementById("mainClearFiltersBtn");
 const mainStatusText = document.getElementById("mainStatusText");
 
 let mainAllBookings = [];
@@ -29,92 +22,6 @@ function mainClearStatus() {
   if (!mainStatusText) return;
   mainStatusText.textContent = "";
   mainStatusText.className = "hidden mb-4 rounded-2xl bg-blue-50 px-4 py-3 text-sm font-medium text-blue-700";
-}
-
-function escapeHtml(value) {
-  return String(value || "")
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
-}
-
-function formatDisplayDate(date) {
-  if (!date) return "-";
-  const d = new Date(date);
-  if (isNaN(d.getTime())) return "-";
-
-  return d.toLocaleDateString("en-SG", {
-    weekday: "long",
-    month: "long",
-    day: "numeric"
-  });
-}
-
-function formatIsoDateToDisplay(isoDate) {
-  if (!isoDate) return "-";
-  const parts = String(isoDate).split("-");
-  if (parts.length !== 3) return String(isoDate);
-
-  const [year, month, day] = parts.map(Number);
-  return formatDisplayDate(new Date(year, month - 1, day));
-}
-
-function normalizeTimeString(value) {
-  if (!value) return "-";
-  const raw = String(value).trim();
-
-  if (/^\d{2}:\d{2}$/.test(raw)) return raw;
-
-  const d = new Date(raw);
-  if (!isNaN(d.getTime())) {
-    return d.toLocaleTimeString("en-GB", {
-      hour: "2-digit",
-      minute: "2-digit",
-      hour12: false
-    });
-  }
-
-  return raw;
-}
-
-function getStatusBadge(status) {
-  const value = String(status || "").toLowerCase();
-
-  if (value === "confirmed") {
-    return `<span class="inline-flex rounded-full bg-blue-50 px-3 py-1 text-xs font-bold text-blue-700">Confirmed</span>`;
-  }
-  if (value === "updated") {
-    return `<span class="inline-flex rounded-full bg-violet-50 px-3 py-1 text-xs font-bold text-violet-700">Updated</span>`;
-  }
-  if (value === "cancelled") {
-    return `<span class="inline-flex rounded-full bg-red-50 px-3 py-1 text-xs font-bold text-red-700">Cancelled</span>`;
-  }
-
-  return `<span class="inline-flex rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-700">${escapeHtml(status || "-")}</span>`;
-}
-
-function buildContactLink(booking) {
-  const email = (booking.email || "").trim();
-
-  if (!email) {
-    return `<span class="text-xs font-semibold text-slate-400">No email</span>`;
-  }
-
-  const subject = encodeURIComponent(`PLC Booking Enquiry - ${booking.venue || ""}`);
-  const body = encodeURIComponent(
-    `Hi ${booking.rankName || ""},\n\nI’m contacting you regarding your booking for ${booking.venue || ""} on ${formatIsoDateToDisplay(booking.bookingDate || "")} at ${normalizeTimeString(booking.bookingTime || "")}.\n\nRegards,`
-  );
-
-  return `
-    <a
-      class="inline-flex rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs font-bold text-slate-800 transition hover:bg-slate-50"
-      href="mailto:${email}?subject=${subject}&body=${body}"
-    >
-      Contact
-    </a>
-  `;
 }
 
 async function apiRequest(params) {
@@ -144,83 +51,6 @@ async function apiRequest(params) {
   }
 }
 
-function renderMainBookingsTable() {
-  if (!mainBookingsTableBody) return;
-
-  let bookings = [...mainAllBookings];
-
-  const dateFilter = mainBookingsDateFilter ? mainBookingsDateFilter.value : "";
-  const venueFilter = mainVenueFilter ? mainVenueFilter.value : "";
-  const searchTerm = mainBookingsSearchInput ? mainBookingsSearchInput.value.trim().toLowerCase() : "";
-  const statusFilter = mainBookingsStatusFilter ? mainBookingsStatusFilter.value.trim().toLowerCase() : "";
-
-  if (dateFilter) {
-    bookings = bookings.filter((booking) => booking.bookingDate === dateFilter);
-    if (mainSelectedDateLabel) {
-      mainSelectedDateLabel.textContent = `Showing bookings for ${formatIsoDateToDisplay(dateFilter)}.`;
-    }
-  } else {
-    if (mainSelectedDateLabel) {
-      mainSelectedDateLabel.textContent = "Showing all bookings. Filter by date, venue, search term, or status.";
-    }
-  }
-
-  if (venueFilter) {
-    bookings = bookings.filter((booking) => (booking.venue || "").includes(venueFilter));
-  }
-
-  if (searchTerm) {
-    bookings = bookings.filter((booking) => {
-      const haystack = [
-        booking.rankName,
-        booking.unit,
-        booking.eventName,
-        booking.contact,
-        booking.venue
-      ].join(" ").toLowerCase();
-
-      return haystack.includes(searchTerm);
-    });
-  }
-
-  if (statusFilter) {
-    bookings = bookings.filter((booking) =>
-      String(booking.status || "").toLowerCase() === statusFilter
-    );
-  }
-
-  bookings.sort((a, b) => {
-    const aKey = `${a.bookingDate || ""} ${normalizeTimeString(a.bookingTime || "")}`;
-    const bKey = `${b.bookingDate || ""} ${normalizeTimeString(b.bookingTime || "")}`;
-    return aKey.localeCompare(bKey);
-  });
-
-  if (!bookings.length) {
-    mainBookingsTableBody.innerHTML = `
-      <tr>
-        <td colspan="9" class="px-4 py-8 text-center text-sm text-slate-500">
-          No bookings found.
-        </td>
-      </tr>
-    `;
-    return;
-  }
-
-  mainBookingsTableBody.innerHTML = bookings.map((booking) => `
-    <tr class="border-b border-slate-100">
-      <td class="px-4 py-3">${getStatusBadge(booking.status)}</td>
-      <td class="px-4 py-3">${escapeHtml(formatIsoDateToDisplay(booking.bookingDate || ""))}</td>
-      <td class="px-4 py-3">${escapeHtml(normalizeTimeString(booking.bookingTime || ""))}</td>
-      <td class="px-4 py-3">${escapeHtml(booking.rankName || "-")}</td>
-      <td class="px-4 py-3">${escapeHtml(booking.unit || "-")}</td>
-      <td class="px-4 py-3">${escapeHtml(booking.contact || "-")}</td>
-      <td class="px-4 py-3">${escapeHtml(booking.eventName || "-")}</td>
-      <td class="px-4 py-3">${escapeHtml(booking.venue || "-")}</td>
-      <td class="px-4 py-3">${buildContactLink(booking)}</td>
-    </tr>
-  `).join("");
-}
-
 async function loadMainBookings() {
   const data = await apiRequest({
     action: "listBookings"
@@ -231,13 +61,11 @@ async function loadMainBookings() {
   }
 
   mainAllBookings = Array.isArray(data.bookings) ? data.bookings : [];
-  renderMainBookingsTable();
-}
 
-if (mainBookingsDateFilter) mainBookingsDateFilter.addEventListener("change", renderMainBookingsTable);
-if (mainVenueFilter) mainVenueFilter.addEventListener("change", renderMainBookingsTable);
-if (mainBookingsSearchInput) mainBookingsSearchInput.addEventListener("input", renderMainBookingsTable);
-if (mainBookingsStatusFilter) mainBookingsStatusFilter.addEventListener("change", renderMainBookingsTable);
+  if (typeof window.refreshBookingCalendar === "function") {
+    window.refreshBookingCalendar();
+  }
+}
 
 if (mainRefreshBookingsBtn) {
   mainRefreshBookingsBtn.addEventListener("click", async () => {
@@ -248,16 +76,6 @@ if (mainRefreshBookingsBtn) {
     } catch (error) {
       mainSetStatus(error.message || "Failed to refresh bookings.", "error");
     }
-  });
-}
-
-if (mainClearFiltersBtn) {
-  mainClearFiltersBtn.addEventListener("click", () => {
-    if (mainBookingsDateFilter) mainBookingsDateFilter.value = "";
-    if (mainVenueFilter) mainVenueFilter.value = "";
-    if (mainBookingsSearchInput) mainBookingsSearchInput.value = "";
-    if (mainBookingsStatusFilter) mainBookingsStatusFilter.value = "";
-    renderMainBookingsTable();
   });
 }
 
