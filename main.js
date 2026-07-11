@@ -1,4 +1,4 @@
-const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxnZoACAnTQMGBXR7Wk5yp8tZCl1O8JXv9O6gxcB9Bbk6VP3bAIz9ihzWEoEY2eG2mw6Q/exec";
+const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbx_2GQ8a61wjyxO_17vbz423n8FBbevmWowphtvxlpA9P3ct1RNE8tbwvdXw4qvPBqPNg/exec";
 
 const mainBookingsTableBody = document.getElementById("mainBookingsTableBody");
 const mainSelectedDateLabel = document.getElementById("mainSelectedDateLabel");

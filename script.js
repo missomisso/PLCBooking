@@ -6,7 +6,7 @@ const CURRENT_VENUE = window.BOOKING_VENUE || {
 const CONFIG = {
   venue: CURRENT_VENUE.name,
   slotDuration: "2 hours",
-  appsScriptUrl: "https://script.google.com/macros/s/AKfycbxnZoACAnTQMGBXR7Wk5yp8tZCl1O8JXv9O6gxcB9Bbk6VP3bAIz9ihzWEoEY2eG2mw6Q/exec"
+  appsScriptUrl: "https://script.google.com/macros/s/AKfycbx_2GQ8a61wjyxO_17vbz423n8FBbevmWowphtvxlpA9P3ct1RNE8tbwvdXw4qvPBqPNg/exec"
 };
 
 const monthNames = [
