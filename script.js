@@ -6,7 +6,7 @@ const CURRENT_VENUE = window.BOOKING_VENUE || {
 const CONFIG = {
   venue: CURRENT_VENUE.name,
   slotDuration: "2 hours",
-  appsScriptUrl: "https://script.google.com/macros/s/AKfycbx_2GQ8a61wjyxO_17vbz423n8FBbevmWowphtvxlpA9P3ct1RNE8tbwvdXw4qvPBqPNg/exec"
+  appsScriptUrl: "https://script.google.com/macros/s/AKfycbwpFuNMN38yWBRnucBVXOtXILMWCyzBTDQa5y945_o4pBXycL0ZAQvbiOBcsx-CZOpxlg/exec"
 };
 
 const monthNames = [
@@ -172,6 +172,58 @@ function normalizeTimeString(value) {
   return raw;
 }
 
+/* -------------------------
+   Conflict helpers
+   (mirror the backend logic in Code.gs so both layers agree)
+------------------------- */
+
+function toMinutes(timeStr) {
+  const parts = String(timeStr || "").split(":");
+  const hours = Number(parts[0]);
+  const minutes = Number(parts[1] || 0);
+
+  if (isNaN(hours) || isNaN(minutes)) return 0;
+
+  return hours * 60 + minutes;
+}
+
+function parseDurationMinutes(duration) {
+  // Handles values like "2", "2 hours", "2h", "1.5", "1.5 hrs"
+  const num = parseFloat(String(duration || "").replace(/[^\d.]/g, ""));
+  if (isNaN(num) || num <= 0) return 60;
+  return num * 60;
+}
+
+function isBookingActive(booking) {
+  return String(booking.status || "").trim().toLowerCase() !== "cancelled";
+}
+
+function venuesOverlap(venueA, venueB) {
+  const listA = String(venueA || "").split(",").map((v) => v.trim().toLowerCase()).filter(Boolean);
+  const listB = String(venueB || "").split(",").map((v) => v.trim().toLowerCase()).filter(Boolean);
+  return listA.some((v) => listB.includes(v));
+}
+
+// Returns the first active booking that overlaps the given slot window,
+// accounting for booking duration (a 4-hour booking at 14:00 blocks 16:00 too).
+function findConflictingBooking(dateIso, slotTime, excludeBookingId) {
+  const slotStart = toMinutes(slotTime);
+  const slotEnd = slotStart + parseDurationMinutes(CONFIG.slotDuration);
+
+  return state.allBookings.find((booking) => {
+    if (booking.bookingDate !== dateIso) return false;
+    if (!venuesOverlap(booking.venue, CONFIG.venue)) return false;
+    if (!isBookingActive(booking)) return false;
+    if (booking.bookingId === excludeBookingId) return false;
+
+    const bookingStart = toMinutes(normalizeTimeString(booking.bookingTime));
+    const bookingEnd = bookingStart + parseDurationMinutes(booking.duration);
+
+    // Interval overlap: slot starts before booking ends AND booking starts before slot ends
+    return slotStart < bookingEnd && bookingStart < slotEnd;
+  });
+}
+
 async function apiRequest(params) {
   const url = new URL(CONFIG.appsScriptUrl);
   Object.entries(params).forEach(([key, value]) => {
@@ -311,19 +363,9 @@ function renderSlots() {
     const btn = document.createElement("button");
     btn.type = "button";
 
-    const bookingForThisSlot = state.allBookings.find((booking) => {
-      const sameDate = state.selectedDate && booking.bookingDate === getIsoDate(state.selectedDate);
-      const sameTime = normalizeTimeString(booking.bookingTime) === time;
-      
-      const configVenues = CONFIG.venue.split(",").map(v => v.trim());
-      const bookingVenues = (booking.venue || "").split(",").map(v => v.trim());
-      const sameVenue = configVenues.some(cv => bookingVenues.includes(cv));
-
-      const active = booking.status !== "Cancelled";
-      const differentBooking = booking.bookingId !== state.currentBookingId;
-
-      return sameDate && sameTime && sameVenue && active && differentBooking;
-    });
+    const bookingForThisSlot = state.selectedDate
+      ? findConflictingBooking(getIsoDate(state.selectedDate), time, state.currentBookingId)
+      : null;
 
     const isDisabled = !!bookingForThisSlot;
     const isSelected = state.selectedSlot === time;
@@ -433,7 +475,7 @@ function loadBookingIntoForm(booking) {
 
   state.currentBookingId = booking.bookingId || null;
   state.currentStatus = booking.status || "Draft";
-  state.isEditingExistingBooking = booking.status !== "Cancelled";
+  state.isEditingExistingBooking = isBookingActive(booking);
 
   if (booking.bookingDate) {
     const [year, month, day] = booking.bookingDate.split("-").map(Number);
@@ -447,14 +489,14 @@ function loadBookingIntoForm(booking) {
 
   state.selectedSlot = normalizeTimeString(booking.bookingTime) || null;
 
-  submitBtn.textContent = booking.status === "Cancelled" ? "Submit Booking" : "Save Changes";
+  submitBtn.textContent = isBookingActive(booking) ? "Save Changes" : "Submit Booking";
 
   updateSummary();
   renderCalendar();
   renderSlots();
   clearError();
 
-  if (booking.status === "Cancelled") {
+  if (!isBookingActive(booking)) {
     hideConfirmation();
     setStatus(`Loaded cancelled booking ${booking.bookingId}.`, "info");
   } else {
@@ -663,19 +705,13 @@ if (form) {
 
       const selectedDateIso = getIsoDate(state.selectedDate);
 
-      const conflict = state.allBookings.find((booking) => {
-        const sameDate = booking.bookingDate === selectedDateIso;
-        const sameTime = normalizeTimeString(booking.bookingTime) === state.selectedSlot;
-        
-        const configVenues = CONFIG.venue.split(",").map(v => v.trim());
-        const bookingVenues = (booking.venue || "").split(",").map(v => v.trim());
-        const sameVenue = configVenues.some(cv => bookingVenues.includes(cv));
-
-        const active = booking.status !== "Cancelled";
-        const differentBooking = booking.bookingId !== state.currentBookingId;
-
-        return sameDate && sameTime && sameVenue && active && differentBooking;
-      });
+      // Duration-aware, venue-aware conflict check against the freshest data.
+      // The backend re-checks this inside a lock; this is a fast-fail courtesy.
+      const conflict = findConflictingBooking(
+        selectedDateIso,
+        state.selectedSlot,
+        state.currentBookingId
+      );
 
       if (conflict) {
         throw new Error(

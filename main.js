@@ -1,4 +1,4 @@
-const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbx_2GQ8a61wjyxO_17vbz423n8FBbevmWowphtvxlpA9P3ct1RNE8tbwvdXw4qvPBqPNg/exec";
+const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwpFuNMN38yWBRnucBVXOtXILMWCyzBTDQa5y945_o4pBXycL0ZAQvbiOBcsx-CZOpxlg/exec";
 
 const mainRefreshBookingsBtn = document.getElementById("mainRefreshBookingsBtn");
 const mainStatusText = document.getElementById("mainStatusText");
